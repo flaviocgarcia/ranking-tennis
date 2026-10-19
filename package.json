@@ -1,0 +1,33 @@
+{
+  "name": "ranking-tenis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ranking de tênis de clube - Vercel Hobby + Supabase Free",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "telegram:set-webhook": "node scripts/telegram-set-webhook.mjs",
+    "demo:seed": "node scripts/seed-demo.mjs",
+    "demo:reset": "node scripts/reset-demo.mjs",
+    "rankings:rebuild": "node scripts/rebuild-rankings.mjs",
+    "demo:video": "node scripts/demo-video/build.mjs",
+    "demo:video:dry": "node scripts/demo-video/build.mjs --dry",
+    "demo:video:cleanup": "node scripts/demo-video/build.mjs --cleanup"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.49.0",
+    "next": "^15.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "playwright": "^1.64.1",
+    "typescript": "^5.7.0"
+  }
+}

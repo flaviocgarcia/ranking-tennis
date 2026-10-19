@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ranking de Tênis · Demonstração</title>
+    <style>
+      :root {
+        --bg: #f5f6f8;
+        --card: #ffffff;
+        --text: #16181d;
+        --muted: #5f6773;
+        --border: #e2e6eb;
+        --accent: #157a4b;
+        --accent-dark: #0f5c39;
+        --accent-soft: #e7f3ec;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        background: linear-gradient(160deg, var(--bg) 0%, #e9efe9 100%);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, "DejaVu Sans", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 48px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 56px 64px;
+        max-width: 940px;
+        width: 100%;
+        box-shadow: 0 18px 50px rgba(22, 24, 29, 0.10);
+      }
+      .kicker {
+        color: var(--accent);
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 0 0 18px;
+      }
+      h1 {
+        font-size: 58px;
+        line-height: 1.1;
+        margin: 0 0 14px;
+      }
+      h2 {
+        font-size: 30px;
+        font-weight: 500;
+        color: var(--muted);
+        margin: 0 0 34px;
+      }
+      .mark { font-size: 46px; display: block; margin-bottom: 22px; }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 14px;
+      }
+      li {
+        background: var(--accent-soft);
+        border: 1px solid #cfe6da;
+        border-radius: 10px;
+        padding: 14px 18px 14px 52px;
+        font-size: 25px;
+        position: relative;
+      }
+      li::before {
+        content: "🎾";
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      .rule {
+        height: 4px;
+        width: 96px;
+        background: var(--accent);
+        border-radius: 2px;
+        margin: 0 0 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <p class="kicker" id="kicker"></p>
+      <span class="mark">🎾</span>
+      <h1 id="titulo"></h1>
+      <div class="rule"></div>
+      <h2 id="subtitulo"></h2>
+      <ul id="itens"></ul>
+    </div>
+    <script>
+      const q = new URLSearchParams(location.search);
+      document.getElementById("kicker").textContent = q.get("k") ?? "";
+      document.getElementById("titulo").textContent = q.get("t") ?? "";
+      document.getElementById("subtitulo").textContent = q.get("s") ?? "";
+      const itens = (q.get("b") ?? "").split(";;").filter(Boolean);
+      const ul = document.getElementById("itens");
+      for (const txt of itens) {
+        const li = document.createElement("li");
+        li.textContent = txt;
+        ul.appendChild(li);
+      }
+      if (itens.length === 0) ul.remove();
+    </script>
+  </body>
+</html>
