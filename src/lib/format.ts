@@ -1,9 +1,24 @@
 /** Formatação compartilhada (datas e placares). */
 
 export function formatDate(iso: string): string {
-  const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
+  // "YYYY-MM-DD" sem fuso é interpretado no fuso DO SERVIDOR (UTC na
+  // Vercel) e renderizado em São Paulo => meia-noite local virava 21h do
+  // dia anterior e a data aparecia um dia para trás. Noon UTC mantém o
+  // mesmo dia em qualquer fuso de renderização.
+  const d = new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+/** Dia da semana por extenso ("sábado") — agrupador da agenda. */
+export function formatWeekday(iso: string): string {
+  // Mesmo cuidado de formatDate: date-only fixado em noon UTC.
+  const d = new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    timeZone: "America/Sao_Paulo",
+  });
 }
 
 export function formatDateTime(iso: string): string {

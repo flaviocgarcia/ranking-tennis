@@ -29,6 +29,7 @@ export default async function AppLayout({
           <nav className="nav">
             <Link href="/app">Início</Link>
             <Link href="/app/results">Resultados</Link>
+            <Link href="/app/agenda">Agenda</Link>
             {!isPending && <Link href="/app/results/new">Novo resultado</Link>}
             <Link href="/rankings" className="subtle">
               Classificações

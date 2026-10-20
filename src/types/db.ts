@@ -58,6 +58,19 @@ export interface SnapshotRow {
   computed_at: string;
 }
 
+export type AvailabilitySlot = "morning" | "afternoon" | "evening" | "any";
+
+export interface AvailabilityRow {
+  id: string;
+  player_id: string;
+  level_id: string;
+  /** Data futura em que a pessoa quer jogar (YYYY-MM-DD). */
+  play_date: string;
+  slot: AvailabilitySlot;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Resultado padrão de uma server action. */
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T }

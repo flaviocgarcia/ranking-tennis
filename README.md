@@ -80,7 +80,7 @@ imagens externas — **zero requisições de terceiros** no navegador).
 ```bash
 npm install
 cp .env.example .env.local   # preencha com as chaves do Supabase
-# aplique supabase/migrations/0001, 0002, 0003, 0004 e (opcional) seed.sql no SQL Editor
+# aplique supabase/migrations/0001..0005 e (opcional) seed.sql no SQL Editor
 npm run dev                  # http://localhost:3000
 ```
 

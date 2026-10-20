@@ -3,7 +3,7 @@
 // cache criado e HTML offline servido pelo cache.
 import { chromium } from "playwright";
 
-const BASE = process.env.BASE || "https://ranking-tenis-mu.vercel.app";
+const BASE = process.env.BASE || "https://ranking-tenis-app.vercel.app";
 
 const erros = [];
 const ok = (t) => console.log(`  ✔ ${t}`);

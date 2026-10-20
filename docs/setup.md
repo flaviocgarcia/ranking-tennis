@@ -32,11 +32,16 @@ reativação após pausa. Custos e limites: `docs/free-tier.md`.
       (`pending_approval`), trigger atualizado (nível escolhido no cadastro
       + cadastro sempre pendente) e RLS que impede cadastro pendente de
       inserir resultados.
-   5. `supabase/seed.sql` *(opcional)* — cria os níveis iniciais **A, B,
+   5. `supabase/migrations/0005_availability.sql` — **agenda de
+      disponibilidade** (`availability`): uma marca por jogador por data
+      (upsert), leitura pública mínima (só data/período/nível/jogador ativo,
+      via join com RLS), escrita apenas do próprio jogador e nenhuma rotina
+      periódica (datas passadas são filtradas na leitura).
+   6. `supabase/seed.sql` *(opcional)* — cria os níveis iniciais **A, B,
       C, D** com a configuração padrão (2 sets + tiebreakão de 10 pts;
       3/2/0 pontos, com 1 ponto para o derrotado no tiebreakão; desempate:
       vitórias → confronto direto → saldo de sets → saldo de games).
-4. Confirme em **Table Editor** que as 4 tabelas existem e que
+4. Confirme em **Table Editor** que as 5 tabelas existem e que
    **Authentication → Providers → Email** está ativo.
 
 Alternativa com CLI (opcional): `supabase link --project-ref <ref>` e

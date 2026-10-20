@@ -97,6 +97,14 @@ function dateAgo(days) {
   return daysAgoISO(days).slice(0, 10);
 }
 
+/** Data futura "YYYY-MM-DD" (meio-dia UTC, mesmo padrão de dateAgo). */
+function dateAhead(days) {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 // ------------------------------------------------------------
 // 1) Níveis existentes (seed.sql cria A, B, C, D).
 // ------------------------------------------------------------
@@ -275,6 +283,35 @@ for (const level of levels) {
   console.log(`  Ranking ${level.code}: ${entries.length} jogador(es), líder ${leaderName} (${leader?.pts ?? 0} pts).`);
 }
 
+// ------------------------------------------------------------
+// 5) Agenda de disponibilidade — próximo sábado e domingo, ~2/3 dos
+//    jogadores marcados (o resto fica "sem marca", como na vida real).
+//    O demo:reset remove em cascata junto com os usuários demo-*.
+// ------------------------------------------------------------
+const AGENDA_SLOTS = ["morning", "afternoon", "evening", "any"];
+const hojeUtc = new Date();
+hojeUtc.setUTCHours(12, 0, 0, 0);
+// próximo sábado (se hoje é sábado, o seguinte — não marca "hoje")
+const diasAteSabado = (6 - hojeUtc.getUTCDay() + 7) % 7 || 7;
+const sabadoIso = dateAhead(diasAteSabado);
+const domingoIso = dateAhead(diasAteSabado + 1);
+
+const agendaRows = players
+  .map((p, i) => ({ p, i }))
+  .filter(({ i }) => i % 3 !== 2) // ~2/3 marcados
+  .map(({ p, i }) => ({
+    player_id: p.id,
+    level_id: p.levelId,
+    play_date: i % 2 === 0 ? sabadoIso : domingoIso,
+    slot: AGENDA_SLOTS[i % AGENDA_SLOTS.length],
+  }));
+
+if (agendaRows.length) {
+  const savedAgenda = await admin.from("availability").insert(agendaRows);
+  if (savedAgenda.error) throw new Error(savedAgenda.error.message);
+  console.log(`Agenda: ${agendaRows.length} marcações em ${sabadoIso} (sáb) e ${domingoIso} (dom).`);
+}
+
 console.log(`
 ============================================================
   MASSA DE TESTE CRIADA
@@ -294,6 +331,8 @@ ${players.map((p) => `    ${p.email.padEnd(46)} ${p.name} (nível ${p.levelSlug.
     ${pendingPlayer.email.padEnd(46)} ${pendingPlayer.name} (nível ${scopedLevel.code}, aguardando aprovação)
 
   Rankings publicados em /rankings/a, /rankings/b, /rankings/c, /rankings/d
+  Agenda pública em /agenda com ${agendaRows.length} marcas
+    (sáb ${sabadoIso.slice(8, 10)}/${sabadoIso.slice(5, 7)} e dom ${domingoIso.slice(8, 10)}/${domingoIso.slice(5, 7)})
   Para apagar tudo:  npm run demo:reset
 ============================================================
 `);

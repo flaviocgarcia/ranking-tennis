@@ -10,7 +10,7 @@ npm run demo:reset   # remove TUDO que a massa criou
 ```
 
 > Requer o `.env.local` preenchido (URL + **service role**) e as migrations
-> `0001` a `0004` aplicadas.
+> `0001` a `0005` aplicadas.
 
 ## Acessos criados pelo seed
 
@@ -49,6 +49,10 @@ Entre em `/login` com o superadmin e vá para `/admin`.
 - A **lista pública de jogos** em `/results` (e `/results/a` …
   `/results/d`) já mostra as 37 confirmadas — as 4 pendentes ficam fora até
   você confirmá-las em `/admin/results`.
+- A **agenda de disponibilidade** em `/agenda` nasce com marcas no próximo
+  fim de semana (~2/3 dos jogadores, períodos variados). Marque/remova as
+  suas em `/app/agenda`; o `demo:reset` apaga tudo em cascata junto com os
+  usuários `demo-*`.
 
 Os placares são gerados por um sorteio **determinístico**: rodar o seed duas
 vezes produz exatamente a mesma massa.

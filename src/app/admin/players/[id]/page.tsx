@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { adminScope, requireAdmin } from "@/lib/auth/session";
 import { adminAvailable, createSupabaseAdmin, SERVICE_KEY_HINT } from "@/lib/supabase/admin";
+import { formatDate } from "@/lib/format";
 import { getProfileAdmin } from "@/lib/queries/players";
 import { listLevelsAdmin } from "@/lib/queries/levels";
 import { EditPlayerForm } from "@/components/PlayersForms";
@@ -48,8 +49,7 @@ export default async function EditPlayerPage({
     <>
       <h1 className="page-title">{player.name}</h1>
       <p className="page-sub">
-        {player.email} · cadastro em{" "}
-        {new Date(player.created_at).toLocaleDateString("pt-BR")}
+        {player.email} · cadastro em {formatDate(player.created_at)}
       </p>
 
       {player.pending_approval && (

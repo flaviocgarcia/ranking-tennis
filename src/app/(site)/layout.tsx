@@ -23,6 +23,7 @@ export default function SiteLayout({
             <Link href="/">Início</Link>
             <Link href="/rankings">Classificações</Link>
             <Link href="/results">Resultados</Link>
+            <Link href="/agenda">Agenda</Link>
             <Link href="/rules">Regras</Link>
             <Link href="/login" className="subtle">
               Área do jogador
@@ -39,7 +40,8 @@ export default function SiteLayout({
           <span>
             <Link href="/rules">Regras dos rankings</Link> ·{" "}
             <Link href="/rankings">Classificações</Link> ·{" "}
-            <Link href="/results">Resultados</Link>
+            <Link href="/results">Resultados</Link> ·{" "}
+            <Link href="/agenda">Agenda</Link>
           </span>
         </div>
       </footer>
