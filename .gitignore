@@ -10,3 +10,4 @@ next-env.d.ts
 scripts/demo-video/cache/
 .DS_Store
 .vercel
+.env*

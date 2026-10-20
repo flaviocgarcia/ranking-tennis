@@ -1,0 +1,14 @@
+# Arquivos que a Vercel não precisa receber no upload do deploy (CLI).
+# Build de produção roda na Vercel a partir do código-fonte.
+
+.env
+.env.local
+.env*.local
+node_modules
+.next
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Artefatos do pipeline de vídeo (gravação local, ~40 MB)
+scripts/demo-video/out
+scripts/demo-video/cache
