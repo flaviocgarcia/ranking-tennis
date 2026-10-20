@@ -43,6 +43,16 @@ reativação após pausa. Custos e limites: `docs/free-tier.md`.
       vitórias → confronto direto → saldo de sets → saldo de games).
 4. Confirme em **Table Editor** que as 5 tabelas existem e que
    **Authentication → Providers → Email** está ativo.
+5. Em **Authentication → URL Configuration**, aponte o Auth para o domínio
+   definitivo do app:
+   - **Site URL**: `https://seu-app.vercel.app`;
+   - **Redirect URLs**: `https://seu-app.vercel.app/**`.
+
+   O fluxo normal do app não depende de redirecionamento (o cadastro usa
+   `signUp` direto), mas links gerados pelo Supabase — confirmação de
+   cadastro e recuperação de senha — usam a Site URL. Como o app já
+   aprova cada jogador manualmente em `/admin/players`, outra opção
+   válida é desligar **Confirm email** e dispensar a confirmação.
 
 Alternativa com CLI (opcional): `supabase link --project-ref <ref>` e
 `supabase db push` (mantém as migrations versionadas — recomendado para
