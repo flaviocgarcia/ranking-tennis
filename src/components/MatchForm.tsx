@@ -66,7 +66,7 @@ const FORMAT_HINTS: Record<MatchFormat, string> = {
   grand_slam:
     "Grand Slam: melhor de 5, sem tiebreakão — a partida só termina quando um jogador fecha 3 sets. Preencha os games de cada lado (ex.: 6 × 4).",
   walkover:
-    "W.O.: use apenas quando um jogador NÃO apareceu sem avisar (300 pts para quem venceu, 50 para o faltoso). Não há placar.",
+    "W.O.: use apenas quando um jogador NÃO apareceu sem avisar (300 pts para quem venceu, 0 para o faltoso). Não há placar.",
 };
 
 export function MatchForm({ mode, levels, players, initial }: Props) {
@@ -276,8 +276,7 @@ export function MatchForm({ mode, levels, players, initial }: Props) {
         <label>
           Formato{" "}
           <span className="hint">
-            Normal e Grand Slam valem 300-200/50-100 e 450-75/150-300; W.O. vale
-            300/50.
+            Normal vale 300-200/50-100; Grand Slam, 450-75; W.O., 300/0.
           </span>
         </label>
         <div className="inline-fields" role="radiogroup" aria-label="Formato">

@@ -11,7 +11,7 @@ import { validateMatchScore } from "./match";
  * - GRAND SLAM: melhor de 5, SEM tiebreakão; só termina quando um
  *   jogador fecha 3 sets, no mesmo dia e sem interrupções longas
  *   (última parte é orientação de uso, não validável).
- * - W.O.: um jogador não apareceu sem avisar — 300/50 e o vencedor é
+ * - W.O.: um jogador não apareceu sem avisar — 300/0 e o vencedor é
  *   declarado (quem compareceu).
  * - Máximo de 2 partidas por semestre contra o mesmo adversário
  *   (2025, ano de estreia, vale 1).
@@ -97,21 +97,20 @@ export function validateChallengerScore(
  * | Formato     | Vencedor            | Perdedor               |
  * |-------------|---------------------|------------------------|
  * | Normal      | 2x0 = 300 · 2x1 = 200 | 0 sets = 50 · 1 set = 100 |
- * | Grand Slam  | sempre 450          | 0 = 75 · 1 = 150 · 2 = 300 |
- * | W.O.        | 300                 | 50                     |
+ * | Grand Slam  | sempre 450          | sempre 75              |
+ * | W.O.        | 300                 | 0                      |
  */
 export function matchPoints(
   format: MatchFormat,
   result: { winner: "p1" | "p2"; winnerSets: number; loserSets: number },
 ): { p1: number; p2: number } {
   if (format === "walkover") {
-    return result.winner === "p1" ? { p1: 300, p2: 50 } : { p1: 50, p2: 300 };
+    return result.winner === "p1" ? { p1: 300, p2: 0 } : { p1: 0, p2: 300 };
   }
   if (format === "grand_slam") {
-    const loser = result.loserSets === 0 ? 75 : result.loserSets === 1 ? 150 : 300;
     return result.winner === "p1"
-      ? { p1: 450, p2: loser }
-      : { p1: loser, p2: 450 };
+      ? { p1: 450, p2: 75 }
+      : { p1: 75, p2: 450 };
   }
   const winner = result.loserSets === 0 ? 300 : 200;
   const loser = result.loserSets === 0 ? 50 : 100;

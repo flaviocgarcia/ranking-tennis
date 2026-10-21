@@ -37,7 +37,7 @@ export default function RulesPage() {
           </li>
           <li>
             <strong>W.O.:</strong> um dos atletas não apareceu sem avisar. Não
-            há placar: quem compareceu vence por 300 x 50.
+            há placar: quem compareceu vence por 300 x 0.
           </li>
           <li>
             O resultado deve ser informado no <strong>mesmo dia</strong> da
@@ -79,32 +79,18 @@ export default function RulesPage() {
                 <td className="num">100</td>
               </tr>
               <tr>
-                <td>Grand Slam — perdedor sem set (3 x 0)</td>
+                <td>Grand Slam — perdedor (qualquer placar)</td>
                 <td className="num">
                   <strong>450</strong>
                 </td>
                 <td className="num">75</td>
               </tr>
               <tr>
-                <td>Grand Slam — perdedor com 1 set (3 x 1)</td>
-                <td className="num">
-                  <strong>450</strong>
-                </td>
-                <td className="num">150</td>
-              </tr>
-              <tr>
-                <td>Grand Slam — perdedor com 2 sets (3 x 2)</td>
-                <td className="num">
-                  <strong>450</strong>
-                </td>
-                <td className="num">300</td>
-              </tr>
-              <tr>
                 <td>W.O. (incomparecimento)</td>
                 <td className="num">
                   <strong>300</strong>
                 </td>
-                <td className="num">50</td>
+                <td className="num">0</td>
               </tr>
             </tbody>
           </table>
