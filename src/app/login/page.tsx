@@ -9,7 +9,7 @@ export default function LoginPage() {
     <div className="auth-wrap">
       <div className="auth-card">
         <p className="brand center">
-          <span className="mark">🎾</span>
+          <img src="/logo-challenge.png" width={30} height={30} alt="" className="brand-logo" />
           {clubName()}
         </p>
         <h1 className="center" style={{ fontSize: 20 }}>

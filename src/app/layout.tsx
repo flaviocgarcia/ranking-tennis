@@ -37,7 +37,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   // Cor da barra do navegador/instalação — mesma do --accent.
-  themeColor: "#157a4b",
+  themeColor: "#111111",
 };
 
 export default function RootLayout({

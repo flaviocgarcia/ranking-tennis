@@ -9,6 +9,13 @@ export default function HomePage() {
   return (
     <>
       <section className="hero">
+        <img
+          src="/logo-challenge.png"
+          width={88}
+          height={88}
+          alt="Logo F CHALLENGER"
+          className="hero-logo"
+        />
         <h1>F CHALLENGER — classificação oficial</h1>
         <p>
           {clubName()}: partidas Normais e Grand Slams informadas pelos próprios

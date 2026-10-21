@@ -2,15 +2,17 @@
    sem imagens de fundo (requisito: mínimo de bytes e zero chamadas
    de rede para recursos decorativos). */
 
+/* Tema F CHALLENGER: P&B de alto contraste (paleta extraída do logo:
+   preto, branco e cinzas). Cores semânticas (erro/aviso) mantidas. */
 :root {
-  --bg: #f5f6f8;
+  --bg: #f4f4f4;
   --card: #ffffff;
-  --text: #16181d;
-  --muted: #5f6773;
-  --border: #e2e6eb;
-  --accent: #157a4b;
-  --accent-dark: #0f5c39;
-  --accent-soft: #e7f3ec;
+  --text: #0b0b0b;
+  --muted: #5c5c5c;
+  --border: #d9d9d9;
+  --accent: #111111;
+  --accent-dark: #333333;
+  --accent-soft: #ededed;
   --danger: #b3261e;
   --danger-soft: #fdecea;
   --warn: #8a6100;
@@ -54,7 +56,7 @@ a:hover {
 /* ---------- Cabeçalho / navegação ---------- */
 .site-header {
   background: var(--card);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--accent);
 }
 .site-header .inner {
   display: flex;
@@ -65,25 +67,22 @@ a:hover {
   padding: 12px 0;
 }
 .brand {
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text);
   font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 .brand:hover {
   text-decoration: none;
 }
-.brand .mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 13px;
+.brand .brand-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
   margin-right: 8px;
-  vertical-align: -6px;
+  vertical-align: -8px;
 }
 .nav {
   display: flex;
@@ -128,6 +127,9 @@ a:hover {
 .page-title {
   margin: 22px 0 6px;
   font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  font-weight: 800;
 }
 .page-sub {
   margin: 0 0 10px;
@@ -161,8 +163,10 @@ a:hover {
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 8px 14px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
 }
 .btn:hover {
@@ -214,9 +218,9 @@ a:hover {
   text-align: left;
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  border-bottom: 2px solid var(--border);
+  letter-spacing: 0.06em;
+  color: var(--text);
+  border-bottom: 2px solid var(--accent);
   padding: 8px 10px;
   white-space: nowrap;
 }
@@ -300,8 +304,8 @@ a:hover {
 }
 .alert-ok {
   background: var(--accent-soft);
-  color: var(--accent-dark);
-  border: 1px solid #bfdfcd;
+  color: var(--text);
+  border: 1px solid #cfcfcf;
 }
 .alert-warn {
   background: var(--warn-soft);
@@ -470,9 +474,20 @@ textarea:focus {
 .hero {
   padding: 44px 0 10px;
 }
+.hero .hero-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
+  border: 2px solid var(--accent);
+  display: block;
+  margin-bottom: 16px;
+}
 .hero h1 {
   font-size: 32px;
   margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  font-weight: 800;
 }
 .hero p {
   font-size: 17px;
@@ -513,7 +528,7 @@ textarea:focus {
   width: 100%;
   max-width: 400px;
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 2px solid var(--accent);
   border-radius: var(--radius);
   padding: 24px;
 }

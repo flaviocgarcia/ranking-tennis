@@ -16,7 +16,7 @@ export default function SiteLayout({
       <header className="site-header">
         <div className="container inner">
           <Link href="/" className="brand">
-            <span className="mark">🎾</span>
+            <img src="/logo-challenge.png" width={30} height={30} alt="" className="brand-logo" />
             {clubName()}
           </Link>
           <nav className="nav">
