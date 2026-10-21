@@ -1,37 +1,42 @@
 #!/usr/bin/env node
 /**
  * ============================================================
- * RECALCULAR E PUBLICAR OS RANKINGS
+ * RECALCULAR E PUBLICAR A CLASSIFICAÇÃO (F CHALLENGER)
  *
  *   npm run rankings:rebuild
  *
- * Útil depois de uma mudança de regra de pontuação (ex.: ponto do
- * derrotado no tiebreakão), sem precisar abrir cada nível no painel.
- * Usa a MESMA função de domínio do app (`computeRanking`) e as mesmas
- * consultas do recálculo oficial, então o resultado é idêntico ao de
- * "Publicar" e ao de /admin/verify.
+ * Útil depois de uma mudança de regra de pontuação, sem precisar abrir
+ * o resultado de cada partida. Usa a MESMA função de domínio do app
+ * (`computeChallengerSnapshot`) e as mesmas consultas do recálculo
+ * oficial, então o snapshot é idêntico ao de "Publicar" e ao de
+ * /admin/verify.
+ *
+ * O snapshot guarda as contribuições [data, pts] de cada partida; a
+ * janela de 12 meses é aplicada na leitura (sem cron).
  *
  * Não altera partidas nem jogadores — grava apenas `ranking_snapshots`.
  * ============================================================
  */
 import {
   buildAdminClient,
-  loadComputeRanking,
+  loadChallengerDomain,
   loadEnv,
 } from "./_demo-shared.mjs";
 
 loadEnv();
 const admin = buildAdminClient();
-const computeRanking = loadComputeRanking();
+const { computeChallengerSnapshot, applyWindow, toViewRows, windowStart } =
+  loadChallengerDomain();
 
 const levelsRes = await admin
   .from("levels")
-  .select("id, code, slug, name, config, sort_order")
+  .select("id, code, slug, name, sort_order")
+  .eq("active", true)
   .order("sort_order", { ascending: true });
 if (levelsRes.error) throw new Error(levelsRes.error.message);
 const levels = levelsRes.data ?? [];
 if (levels.length === 0) {
-  console.error("Nenhum nível cadastrado.");
+  console.error("Nenhum nível ativo cadastrado.");
   process.exit(1);
 }
 
@@ -49,7 +54,7 @@ for (const level of levels) {
       .limit(2000),
     admin
       .from("matches")
-      .select("id, player1_id, player2_id, sets")
+      .select("id, player1_id, player2_id, sets, format, walkover_winner, played_on")
       .eq("level_id", level.id)
       .eq("status", "confirmed")
       .limit(10000),
@@ -59,25 +64,25 @@ for (const level of levels) {
 
   const players = playersRes.data ?? [];
   const matches = matchesRes.data ?? [];
-  const { entries, invalid } = computeRanking(players, matches, level.config);
+  const { data, invalid } = computeChallengerSnapshot(players, matches);
 
-  const at = new Date().toISOString();
   const saved = await admin.from("ranking_snapshots").upsert({
     level_id: level.id,
-    data: { entries, mc: matches.length, at },
-    computed_at: at,
+    data,
+    computed_at: data.at,
   });
   if (saved.error) throw new Error(saved.error.message);
 
-  const leader = entries[0];
-  const leaderName = leader
-    ? players.find((p) => p.id === leader.id)?.name
-    : "-";
+  // Conferência rápida na janela corrente (mesma leitura do site).
+  const names = new Map(players.map((p) => [p.id, p]));
+  const rows = toViewRows(applyWindow(data, windowStart(new Date().toISOString().slice(0, 10))), names);
+  const leader = rows[0];
   console.log(
-    `  ${level.code}: ${entries.length} jogador(es), ${matches.length} partida(s), ` +
-      `líder ${leaderName ?? "-"} (${leader?.pts ?? 0} pts)` +
-      (invalid.length > 0 ? ` — ${invalid.length} placar(es) ignorado(s)` : ""),
+    `  ${level.code}: ${rows.length} jogador(es) na janela, ` +
+      `${matches.length} partida(s) confirmada(s), ` +
+      `líder ${leader ? names.get(leader.id)?.name : "-"} (${leader?.pts ?? 0} pts)` +
+      (invalid.length > 0 ? ` — ${invalid.length} partida(s) ignorada(s)` : ""),
   );
 }
 
-console.log("Rankings republicados.");
+console.log("Classificação republicada.");

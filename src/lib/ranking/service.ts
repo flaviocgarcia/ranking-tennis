@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { computeRanking } from "@/lib/domain/ranking";
-import type { RankingEntry, RankingSnapshotData } from "@/lib/domain/config";
+import { computeChallengerSnapshot } from "@/lib/domain/challenger";
+import type { ChallengerSnapshotData } from "@/lib/domain/challenger";
 import { getLevelAdmin } from "@/lib/queries/levels";
 import { MATCH_RANKING_COLS } from "@/lib/queries/matches";
 import { PROFILE_MIN_COLS } from "@/lib/queries/players";
@@ -16,17 +16,21 @@ const MAX_MATCHES = 10000;
 
 export interface RebuildResult {
   slug: string;
-  entries: RankingEntry[];
   invalid: string[];
   matchesUsed: number;
 }
 
 /**
- * Recalcula o ranking de UM nível e grava o snapshot.
+ * Recalcula o snapshot do F CHALLENGER e o grava.
+ *
+ * O snapshot guarda as CONTRIBUTUIÇÕES por partida (data + pontos) de
+ * cada jogador — o HISTÓRICO todo. A janela de 12 meses (caducidade dos
+ * pontos) é aplicada na LEITURA, assim o ranking envelhece sozinho, sem
+ * cron e sem recálculo.
  *
  * - Executada apenas no servidor, em escritas administrativas
- *   (resultado confirmado/editado/removido, config alterada) ou na
- *   publicação manual — nunca em leituras.
+ *   (resultado confirmado/editado/removido) ou na publicação manual —
+ *   nunca em leituras.
  * - 3 consultas de leitura + 1 upsert (sem N+1, sem consultas por jogador).
  * - Também é a rotina de "verificar consistência": o mesmo cálculo é
  *   reproduzível a partir dos resultados oficiais.
@@ -51,33 +55,20 @@ export async function rebuildRankingSnapshot(levelId: string): Promise<RebuildRe
       .select(MATCH_RANKING_COLS)
       .eq("level_id", levelId)
       .eq("status", "confirmed")
+      .order("played_on", { ascending: true })
+      .order("id", { ascending: true })
       .limit(MAX_MATCHES),
   ]);
   if (playersRes.error) throw new Error(playersRes.error.message);
   if (matchesRes.error) throw new Error(matchesRes.error.message);
 
-  const players = (playersRes.data ?? []) as {
-    id: string;
-    name: string;
-    initials: string;
-  }[];
-  const matches = (matchesRes.data ?? []) as {
-    id: string;
-    player1_id: string;
-    player2_id: string;
-    sets: [number, number][];
-  }[];
+  const players = (playersRes.data ?? []) as { id: string }[];
+  const matches = matchesRes.data ?? [];
 
-  const { entries, invalid } = computeRanking(players, matches, level.config);
+  const { data, invalid } = computeChallengerSnapshot(players, matches);
+  await saveSnapshot(admin, levelId, data);
 
-  const snapshot: RankingSnapshotData = {
-    entries,
-    mc: matches.length,
-    at: new Date().toISOString(),
-  };
-  await saveSnapshot(admin, levelId, snapshot);
-
-  return { slug: level.slug, entries, invalid, matchesUsed: matches.length };
+  return { slug: level.slug, invalid, matchesUsed: matches.length };
 }
 
 /**

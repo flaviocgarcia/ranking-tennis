@@ -9,15 +9,16 @@ export default function HomePage() {
   return (
     <>
       <section className="hero">
-        <h1>Classificação oficial de tênis</h1>
+        <h1>F CHALLENGER — classificação oficial</h1>
         <p>
-          {clubName()}: resultados informados pelos próprios jogadores ou pelo
-          administrador, confirmados pelo administrador e publicados em um
-          ranking transparente, calculado a partir das regras de cada nível.
+          {clubName()}: partidas Normais e Grand Slams informadas pelos próprios
+          jogadores ou pelo administrador, confirmadas pelo administrador e
+          publicadas em um ranking transparente — com pontuação que caduca ao
+          completar 1 ano.
         </p>
         <div className="row-actions">
           <Link href="/rankings" className="btn">
-            Ver classificações
+            Ver classificação
           </Link>
           <Link href="/login" className="btn btn-secondary">
             Área do jogador
@@ -27,29 +28,30 @@ export default function HomePage() {
 
       <section className="grid mt">
         <Link href="/rankings" className="link-card">
-          <div className="title">Classificações</div>
+          <div className="title">Classificação</div>
           <div className="desc">
-            Ranking publicado por nível (A, B, C, D ou os que o clube criar).
+            Posição, pontos, jogos (JGS) e média — só valem os jogos dos
+            últimos 12 meses.
           </div>
         </Link>
         <Link href="/results" className="link-card">
           <div className="title">Resultados</div>
           <div className="desc">
-            Lista de partidas confirmadas, com placar e vencedor de cada jogo.
+            Lista de partidas confirmadas, com placar, formato e vencedor de
+            cada jogo.
           </div>
         </Link>
         <Link href="/rules" className="link-card">
-          <div className="title">Regras</div>
+          <div className="title">Regulamento</div>
           <div className="desc">
-            Formatos de partida, pontuação e critérios de desempate de cada
-            nível.
+            Formatos, pontuação, limite por semestre e caducidade dos pontos.
           </div>
         </Link>
-        <Link href="/register" className="link-card">
-          <div className="title">Criar conta</div>
+        <Link href="/ativar" className="link-card">
+          <div className="title">Ativar cadastro</div>
           <div className="desc">
-            Cadastro pelo próprio jogador — ou peça ao administrador para
-            cadastrar você.
+            Atleta do torneio? Ative sua conta com o código enviado pelo
+            administrador.
           </div>
         </Link>
       </section>
@@ -59,12 +61,12 @@ export default function HomePage() {
         <ol>
           <li>
             Qualquer jogador (ou o administrador) informa o resultado de uma
-            partida.
+            partida — Normal, Grand Slam ou W.O.
           </li>
           <li>O administrador confirma — ou rejeita — o resultado.</li>
           <li>
-            Somente o ranking afetado é recalculado e republicado
-            imediatamente.
+            A classificação é atualizada na hora e os pontos caducam após 1
+            ano, sem cron nenhum.
           </li>
         </ol>
         <p className="muted small">

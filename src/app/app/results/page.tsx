@@ -8,6 +8,7 @@ import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pagination } from "@/components/Pagination";
 import { formatDate, scoreText } from "@/lib/format";
+import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
 
 export const metadata: Metadata = { title: "Meus resultados" };
 
@@ -60,7 +61,7 @@ export default async function MyResultsPage({
             <thead>
               <tr>
                 <th>Data</th>
-                <th>Nível</th>
+                <th>Formato</th>
                 <th>Adversário</th>
                 <th>Placar</th>
                 <th className="col-sm">Fonte</th>
@@ -77,14 +78,22 @@ export default async function MyResultsPage({
                 return (
                   <tr key={m.id}>
                     <td>{formatDate(m.played_on)}</td>
-                    <td>{m.level?.name}</td>
+                    <td>{MATCH_FORMAT_LABELS[m.format]}</td>
                     <td>
                       <span className="player-cell">
                         <Avatar initials={(opponent?.name ?? "?").slice(0, 2).toUpperCase()} />
                         {opponent?.name ?? "?"}
                       </span>
                     </td>
-                    <td>{scoreText(m.sets)}</td>
+                    <td>
+                      {m.format === "walkover"
+                        ? `W.O. (${
+                            m.walkover_winner === (isP1 ? 1 : 2)
+                              ? "você"
+                              : opponent?.name ?? "?"
+                          })`
+                        : scoreText(m.sets)}
+                    </td>
                     <td className="col-sm muted small">
                       {m.source === "telegram" ? "Telegram" : "Site"}
                     </td>

@@ -28,31 +28,30 @@ reativação após pausa. Custos e limites: `docs/free-tier.md`.
       confirmados** (pendentes/rejeitados continuam privados; `reported_by`,
       `source` e `external_ref` ficam fora do alcance do anon).
    4. `supabase/migrations/0004_admin_scope_and_approval.sql` — escopo de
-      administrador por nível (`admin_level_id`), aprovação de auto-cadastro
-      (`pending_approval`), trigger atualizado (nível escolhido no cadastro
-      + cadastro sempre pendente) e RLS que impede cadastro pendente de
-      inserir resultados.
+      administrador por nível (`admin_level_id`), aprovação de cadastro
+      (`pending_approval`), trigger atualizado e RLS que impede cadastro
+      pendente de inserir resultados.
    5. `supabase/migrations/0005_availability.sql` — **agenda de
       disponibilidade** (`availability`): uma marca por jogador por data
-      (upsert), leitura pública mínima (só data/período/nível/jogador ativo,
-      via join com RLS), escrita apenas do próprio jogador e nenhuma rotina
-      periódica (datas passadas são filtradas na leitura).
-   6. `supabase/seed.sql` *(opcional)* — cria os níveis iniciais **A, B,
-      C, D** com a configuração padrão (2 sets + tiebreakão de 10 pts;
-      3/2/0 pontos, com 1 ponto para o derrotado no tiebreakão; desempate:
-      vitórias → confronto direto → saldo de sets → saldo de games).
-4. Confirme em **Table Editor** que as 5 tabelas existem e que
-   **Authentication → Providers → Email** está ativo.
+      (upsert), leitura pública mínima, escrita apenas do próprio jogador e
+      nenhuma rotina periódica.
+   6. `supabase/migrations/0006_challenger.sql` — **F CHALLENGER**:
+      `matches.format` (`normal`/`grand_slam`/`walkover`) +
+      `walkover_winner`, e a tabela `invites` (pré-cadastro dos atletas com
+      **código de ativação** — tabela privada, só `service_role`).
+   7. `supabase/migrations/0007_invites_activated_at.sql` — separa
+      "conta pré-criada" de "ativação concluída" (`invites.activated_at`).
+4. Confirme em **Table Editor** que as 6 tabelas existem (`levels`,
+   `profiles`, `matches`, `ranking_snapshots`, `availability`, `invites`) e
+   que **Authentication → Providers → Email** está ativo.
 5. Em **Authentication → URL Configuration**, aponte o Auth para o domínio
    definitivo do app:
    - **Site URL**: `https://seu-app.vercel.app`;
    - **Redirect URLs**: `https://seu-app.vercel.app/**`.
 
-   O fluxo normal do app não depende de redirecionamento (o cadastro usa
-   `signUp` direto), mas links gerados pelo Supabase — confirmação de
-   cadastro e recuperação de senha — usam a Site URL. Como o app já
-   aprova cada jogador manualmente em `/admin/players`, outra opção
-   válida é desligar **Confirm email** e dispensar a confirmação.
+   O app não usa confirmação de e-mail por link (`email_confirm: true` no
+   servidor), mas links gerados pelo Supabase — recuperação de senha — usam
+   a Site URL.
 
 Alternativa com CLI (opcional): `supabase link --project-ref <ref>` e
 `supabase db push` (mantém as migrations versionadas — recomendado para
@@ -67,14 +66,18 @@ acima e depois migre para o CLI).
 - O trigger de novo usuário **nunca aceita papel (`role`) vindo do
   cliente** — administrador é atribuído somente no servidor (ação com
   chave de service).
-- **Grants de coluna**: o auto-cadastro é aberto, então "autenticado" não
-  é "membro do clube". `email` e `telegram_link_code` são privados — só a
+- **Grants de coluna**: não existe auto-cadastro aberto — os atletas são
+  pré-cadastrados e ativados por **código**. Ainda assim "autenticado" não
+  é "membro do torneio": `email` e `telegram_link_code` são privados — só a
   chave de service (painel `/admin/players`, `/profile` e bot) os lê.
   Jogadores entre si veem apenas `id, nome, iniciais, nível, situação`;
   o público (anon) vê apenas `id, nome, iniciais` de jogadores ativos
-  (é o que o ranking exibe). UPDATE de perfil é restrito a
+  (é o que a classificação exibe). UPDATE de perfil é restrito a
   `name`, `initials`, `must_change_password`, `telegram_*` — ninguém
   altera `role`/`level_id`/`active` por RLS.
+- **`invites` é tabela privada**: nenhuma leitura para `anon`/
+  `authenticated` (o código de ativação é credencial) — só a server action
+  com chave de service a toca.
 - Toda ação administrativa roda **no servidor**, após `requireAdmin()`,
   usando `SUPABASE_SERVICE_ROLE_KEY` (que **bypassa RLS** e jamais vai para
   o navegador — não usa prefixo `NEXT_PUBLIC_`).
@@ -84,23 +87,66 @@ acima e depois migre para o CLI).
   pode jogar no próprio nível. Como as escritas usam a chave de service, o
   escopo é validado **no servidor** em cada ação/página, não apenas
   escondido na interface.
-- **Auto-cadastro pendente**: o trigger grava `pending_approval = true`
-  para todo usuário novo (não confia em metadata do cliente); criado pelo
-  administrador, a própria ação marca `false` na sequência. A função
-  `is_approved()` + política de INSERT em `matches` impedem que um cadastro
-  pendente informe resultados mesmo chamando a API REST diretamente.
+- **Auto-cadastro não existe** — o antigo `/register` redireciona para
+  `/ativar`. O trigger continua gravando `pending_approval = true` para
+  todo usuário novo (não confia em metadata do cliente); quem é criado pela
+  importação ou pelo administrador tem `false` gravado em seguida, no
+  servidor. A função `is_approved()` + política de INSERT em `matches`
+  impedem que um cadastro pendente informe resultados mesmo chamando a API
+  REST diretamente.
 - Toda escrita que muda um ranking (resultado oficial, jogador
   ativo/nível/aprovação, configuração) **recalcula e revalida** na mesma
   operação — o snapshot nunca fica divergente do recálculo
   (`/admin/verify` checa).
 
+### Importação da planilha F CHALLENGER (wipe total)
+
+O torneio é importado de `F CHALLENGER R25.xlsx` (aba de origem: a pasta
+`Downloads` de quem opera). **Apaga todos os dados** (partidas, perfis,
+convites, snapshots, níveis e todos os usuários do Auth — exceto a conta
+`flaviocgarcia@gmail.com`) e recria o mundo F CHALLENGER:
+
+```bash
+npm run fch:export               # xlsx -> /tmp/opencode/fchallenger.json
+npm run fch:import -- --yes      # WIPE + importação (irreversível)
+```
+
+O que o import faz (detalhe em `scripts/reset-and-import.mjs`):
+
+1. cria o nível **F CHALLENGER** (`slug: challenger`);
+2. cria os **51 atletas** com **conta placeholder** (e-mail provisório
+   `@fch.example.com`, senha desconhecida) já vinculada ao convite —
+   necessário porque os 84 jogos históricos exigem perfil dos dois lados;
+   ninguém entra nessas contas: o atleta define **e-mail + senha** em
+   `/ativar` com o código;
+3. recria o perfil do **Flavio Garcia como administrador** (conta Auth
+   preservada) e marca o convite dele como ativado;
+4. importa as **84 partidas** (todas confirmadas; o exportador corrige 3
+   erros de digitação e 2 datas com ano errado);
+5. cria as contas demo E2E (`demo:seed` é o mesmo conjunto);
+6. calcula e publica o snapshot **com o mesmo motor do app** e confere o
+   recálculo contra o RANKING oficial da planilha (esperado: 37/38
+   idênticos — RODRIGO MEINCKE difere porque o ranking oficial da planilha
+   está defasado; decisão: recalcular pelas regras);
+7. grava os **códigos de ativação** dos 51 atletas em
+   `/tmp/opencode/fchallenger_codigos.txt` (dado pessoal — fora do
+   repositório, como o JSON).
+
+O exportador (`scripts/export_fchallenger.py`, `python3.10` + `openpyxl`)
+também valida os dados: placares sem vencedor, datas fora do período e
+divergências de pontos saem no relatório — em caso de problema ele termina
+com código de erro.
+
 ## 2. Primeiro administrador
 
-1. Acesse `https://seu-app.vercel.app/register` (ou local
-   `http://localhost:3000/register`) e crie a conta com **seu e-mail**,
-   escolhendo o nível em que você joga. O cadastro nasce **pendente de
-   aprovação**.
-2. Depois, no **SQL Editor do Supabase**, promova e aprove a conta:
+Na prática o F CHALLENGER já nasce com administrador: a importação
+(`fch:import`) **preserva a conta `flaviocgarcia@gmail.com`** e recria o
+perfil dela como `admin` geral. Para um projeto novo sem importação:
+
+1. No **Supabase → Authentication → Users → Add user**, crie a conta com
+   e-mail e senha (marque *Auto Confirm*). O trigger cria o perfil
+   automaticamente (nível ativo, `pending_approval = true`).
+2. No **SQL Editor**, promova e aprove:
 
 ```sql
 update public.profiles
@@ -112,45 +158,36 @@ where email = 'seu-email@exemplo.com';
 
 3. Faça login em `/login` — o menu administrativo (`/admin`) aparece.
 4. Recomendado: **Authentication → Settings** — defina *Secure email
-   change* e limite de envios; no plano Free há limite de e-mails/hora no
-   cadastro com confirmação. Se o clube for pequeno e o primeiro admin já
-   existir, considere criar os demais jogadores pelo painel
-   (`/admin/players/new`) — eles recebem **senha temporária** e definem a
-   própria senha no primeiro acesso (sem dependência do e-mail de
-   confirmação).
+   change* e limite de envios.
 
 > Para mais administradores, use `/admin/players/new` com o perfil
-> **Administrador**. Deixe o *escopo* vazio para admin geral ou escolha um
-> nível para um admin restrito. O mesmo formulário define o nível em que
-> ele **joga** (pode ser o mesmo do escopo).
+> **Administrador**. Não existe mais auto-cadastro público: quem não tem
+> conta recebe um **código de ativação**.
 
-### Cadastro de jogadores (os dois caminhos)
+### Conta de jogadores (os dois caminhos)
 
-- **Pelo administrador** (recomendado): `/admin/players/new` → gera
-  senha temporária exibida **uma única vez** → jogador entra e é obrigado
-  a trocar a senha (`must_change_password`). Já nasce **aprovado**.
-- **Auto-cadastro**: qualquer pessoa em `/register` escolhe o nível e cria
-  a conta; ela entra como **pendente** e não aparece no ranking nem pode
-  informar resultados até o administrador aprovar em
-  `/admin/players?pending=1` (ou no próprio perfil do jogador). O nível
-  escolhido é validado no banco; o admin pode ajustá-lo depois.
-- Ao aprovar, o ranking do nível é recalculado e republicado na hora.
+- **Ativação por código** (caminho principal): gere o convite em
+  `/admin/convites` (nome, telefone, nível de referência da planilha) e
+  envie o código de 8 caracteres por WhatsApp. O atleta entra em
+  `/ativar`, digita o código (etapa 1 mostra o nome dele), escolhe
+  **e-mail + senha** (etapa 2) e a conta nasce **aprovada**, com login
+  automático. O código é de uso único; o admin pode regerar um código não
+  ativado em `/admin/convites`.
+- **Pelo administrador**: `/admin/players/new` → gera senha temporária
+  exibida **uma única vez** → jogador entra e é obrigado a trocar a senha
+  (`must_change_password`). Já nasce **aprovado**.
+- Ao ativar/criar, a classificação é recalculada e republicada na hora.
 
-### Atalho para testes: massa de dados demo
-
-Para testar tudo (admin, jogadores, resultados e rankings publicados) sem
-cadastrar nada na mão:
+### Atalho para testes: contas demo
 
 ```bash
-npm run demo:seed     # cria superadmin + admin de nível + 19 jogadores + 41 partidas
+npm run demo:seed     # cria/ajusta demo-admin + demo-player (0 jogos)
 npm run demo:reset    # remove SOMENTE os dados demo
 ```
 
-Acesso criado: **`demo-admin@example.com`** / senha **`Demo@12345`**
-(superadmin). Também são criados **`demo-admin-b@example.com`** (admin
-somente do nível B, que também joga nele) e **`demo-pendente@example.com`**
-(auto-cadastro pendente, para testar a aprovação). Remover nunca afeta
-dados reais. Detalhes: [`docs/demo-data.md`](demo-data.md).
+Acessos: **`demo-admin@example.com`** e **`demo-player@example.com`**,
+senha **`Demo@12345`**. Remover nunca afeta dados reais. Detalhes:
+[`docs/demo-data.md`](demo-data.md).
 
 ## 3. Variáveis de ambiente
 
@@ -163,7 +200,7 @@ Copie `.env.example` para `.env.local` (local) e configure na Vercel
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sim | `anon public` key |
 | `SUPABASE_SERVICE_ROLE_KEY` | sim* | `service_role` key (*necessária para criar/editar usuários pelo painel e para o bot) |
 | `NEXT_PUBLIC_SITE_URL` | sim | `https://seu-app.vercel.app` (usada no webhook do Telegram) |
-| `NEXT_PUBLIC_CLUB_NAME` | não | nome exibido no site |
+| `NEXT_PUBLIC_CLUB_NAME` | não | nome exibido no site (ex.: `F CHALLENGER`) |
 | `TELEGRAM_BOT_TOKEN` | não | token do @BotFather (sistema funciona sem) |
 | `TELEGRAM_WEBHOOK_SECRET` | não | segredo aleatório longo para o header do webhook |
 
@@ -178,13 +215,15 @@ Configuration → Redirect URLs**: `https://seu-app.vercel.app/**`.
 3. Preencha as variáveis da seção 3 e clique em **Deploy**.
 4. Após o primeiro deploy: defina `NEXT_PUBLIC_SITE_URL` como o domínio
    final e redeploy (ou atualize a variável e faça *Redeploy*).
-5. Smoke test pós-deploy: `/`, `/rules`, `/rankings`, `/results` (200 e
-   sem erros; nomes dos jogadores visíveis e **nenhum jogo pendente** na
-   lista); `/login` entra e sai; `/app`
-   redireciona para `/login` sem sessão; `/admin` só acessível com sessão
-   admin; `/admin/players` lista com e-mails e `/profile` mostra
-   e-mail + código de vínculo (**exigem `SUPABASE_SERVICE_ROLE_KEY`** —
-   sem ela aparece o aviso amigável).
+5. Smoke test pós-deploy: `/`, `/rules`, `/rankings` e
+   `/rankings/challenger`, `/results` (200 e sem erros; nomes dos
+   atletas visíveis, distintivos Grand Slam/W.O. e **nenhum jogo
+   pendente** na lista); `/login` entra e sai; `/ativar` valida um código
+   qualquer de teste; `/app` redireciona para `/login` sem sessão;
+   `/admin` só acessível com sessão admin; `/admin/players` lista com
+   e-mails e `/profile` mostra e-mail + código de vínculo (**exigem
+   `SUPABASE_SERVICE_ROLE_KEY`** — sem ela aparece o aviso amigável).
+   Automatizado: `node scripts/smoke-prod.mjs`.
 6. Verificação de privacidade (sem sessão, em terminal):
    ```bash
    curl -s "https://SEU-PROJETO.supabase.co/rest/v1/profiles?select=email" \
@@ -195,21 +234,20 @@ Configuration → Redirect URLs**: `https://seu-app.vercel.app/**`.
 
 Localmente: `npm install`, `cp .env.example .env.local`, `npm run dev`.
 
-## 5. Publicação e verificação do ranking
+## 5. Publicação e verificação da classificação
 
-- O ranking é recalculado **automaticamente** quando um resultado é
-  confirmado/editado/excluído, a configuração do nível muda, um jogador é
-  ativado/desativado/muda de nível ou um **auto-cadastro é aprovado**; as
-  páginas públicas são revalidadas na mesma operação.
-- Botão **"Publicar"** em `/admin/levels` recalcula e republica à mão.
-  Para republicar **todos** os níveis depois de uma mudança de regra:
-  `npm run rankings:rebuild`.
-- **`/admin/verify`** confere, sob demanda, se o ranking publicado bate
-  com o recálculo a partir dos resultados oficiais (§5) — sem alterar
-  nada. Admin de nível verifica apenas o próprio nível.
-- Trocar a configuração: `/admin/levels/[id]` (formato: sets, tiebreakão,
-  pontuação — inclusive **ponto do derrotado no tiebreakão**, ligado por
-  padrão — e **ordem dos critérios de desempate**).
+- A classificação é recalculada **automaticamente** quando um resultado é
+  confirmado/editado/excluído, um jogador é ativado/desativado ou um
+  convite é usado; as páginas públicas são revalidadas na mesma operação.
+- A **janela de 12 meses** é aplicada na leitura (`revalidate = 3600` nas
+  páginas de classificação): pontos caducam sozinhos, sem nenhum rebuild.
+- Para republicar à mão (ex.: depois de mudança de regra em
+  `src/lib/domain/challenger.ts`): `npm run rankings:rebuild`.
+- **`/admin/verify`** confere, sob demanda, se a classificação publicada
+  bate com o recálculo a partir dos resultados oficiais — sem alterar nada.
+- As regras em si (formatos, pontuação, limite por semestre, janela)
+  vivem em `src/lib/domain/challenger.ts` e estão descritas em `/rules`;
+  não há tela de configuração de níveis (o torneio é único).
 
 ## 6. Telegram (opcional)
 

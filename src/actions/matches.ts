@@ -3,13 +3,20 @@
 import { levelOutOfScope, requireAdmin, requireUser } from "@/lib/auth/session";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServer } from "@/lib/supabase/server";
-import { validateMatchScore } from "@/lib/domain/match";
+import {
+  MATCH_FORMATS,
+  semesterKey,
+  semesterLimit,
+  semesterRange,
+  validateChallengerScore,
+  type MatchFormat,
+} from "@/lib/domain/challenger";
 import { rebuildAndRevalidate } from "@/lib/ranking/service";
 import { getLevelAdmin } from "@/lib/queries/levels";
 import { getMatchAdmin } from "@/lib/queries/matches";
 import { dateString, parseSetStrings, uuidString } from "@/lib/validation";
 import type { ActionResult, MatchStatus } from "@/types/db";
-import type { LevelConfig, ScoreSet } from "@/lib/domain/config";
+import type { ScoreSet } from "@/lib/domain/config";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 function today(): string {
@@ -41,13 +48,36 @@ async function duplicateExists(
   return (data ?? []).length > 0;
 }
 
-async function loadLevelConfig(
+/**
+ * Limite do F CHALLENGER: no máximo `semesterLimit` partidas por
+ * semestre entre o MESMO par de adversários (pendentes contam — senão
+ * dois relatos pendentes liberariam um 3º). Rejeitadas não contam.
+ * Chamado apenas no relato do jogador; o administrador pode corrigir/
+ * excepcionar.
+ */
+async function semesterCount(
   supabase: SupabaseClient,
   levelId: string,
-): Promise<{ id: string; slug: string; config: LevelConfig }> {
-  const level = await getLevelAdmin(supabase, levelId);
-  if (!level) throw new Error("Nível não encontrado.");
-  return level;
+  p1: string,
+  p2: string,
+  playedOn: string,
+  ignoreId?: string,
+): Promise<number> {
+  const { from, to } = semesterRange(semesterKey(playedOn));
+  let q = supabase
+    .from("matches")
+    .select("id")
+    .eq("level_id", levelId)
+    .neq("status", "rejected")
+    .gte("played_on", from)
+    .lte("played_on", to)
+    .or(
+      `and(player1_id.eq.${p1},player2_id.eq.${p2}),and(player1_id.eq.${p2},player2_id.eq.${p1})`,
+    );
+  if (ignoreId) q = q.neq("id", ignoreId);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data ?? []).length;
 }
 
 async function assertPlayersInLevel(
@@ -76,6 +106,49 @@ async function assertPlayersInLevel(
 /** Recalcula o ranking afetado e limpa o cache estático das páginas públicas. */
 async function afterOfficialChange(levelId: string): Promise<void> {
   await rebuildAndRevalidate(levelId);
+}
+
+function readFormat(formData: FormData): MatchFormat {
+  const raw = String(formData.get("format") ?? "normal");
+  if (!MATCH_FORMATS.includes(raw as MatchFormat)) {
+    throw new Error("Formato da partida inválido.");
+  }
+  return raw as MatchFormat;
+}
+
+interface ParsedScore {
+  ok: true;
+  sets: ScoreSet[];
+  walkover_winner: 1 | 2 | null;
+}
+
+interface ParseError {
+  ok: false;
+  error: string;
+}
+
+/**
+ * Lê placar/vencedor do formulário conforme o formato e valida:
+ * - W.O.: sem sets, com o vencedor declarado (1 ou 2);
+ * - Normal: melhor de 3, 3º set = tiebreakão a 10;
+ * - Grand Slam: melhor de 5, sem tiebreakão.
+ */
+function readAndValidateScore(
+  formData: FormData,
+  format: MatchFormat,
+): ParsedScore | ParseError {
+  if (format === "walkover") {
+    const raw = String(formData.get("walkover_winner") ?? "");
+    if (raw !== "1" && raw !== "2") {
+      return { ok: false, error: "Informe quem venceu o W.O." };
+    }
+    return { ok: true, sets: [], walkover_winner: raw === "1" ? 1 : 2 };
+  }
+
+  const sets = parseSetStrings(formData.getAll("set"));
+  const validation = validateChallengerScore(sets, format);
+  if (!validation.ok) return { ok: false, error: validation.error };
+  return { ok: true, sets, walkover_winner: null };
 }
 
 /**
@@ -111,12 +184,14 @@ export async function submitMatchAction(
     if (playedOn > today()) {
       return { ok: false, error: "A data não pode estar no futuro." };
     }
-    const sets = parseSetStrings(formData.getAll("set"));
+
+    const format = readFormat(formData);
+    const score = readAndValidateScore(formData, format);
+    if (!score.ok) return { ok: false, error: score.error };
 
     const supabase = await createSupabaseServer();
-    const level = await loadLevelConfig(supabase, levelId);
-    const validation = validateMatchScore(sets, level.config);
-    if (!validation.ok) return { ok: false, error: validation.error };
+    const level = await getLevelAdmin(supabase, levelId);
+    if (!level) return { ok: false, error: "Nível não encontrado." };
 
     await assertPlayersInLevel(supabase, levelId, [info.userId, opponentId]);
 
@@ -127,11 +202,33 @@ export async function submitMatchAction(
       };
     }
 
+    // Limite de 2 partidas por semestre contra o mesmo adversário.
+    const key = semesterKey(playedOn);
+    const limit = semesterLimit(key);
+    const count = await semesterCount(
+      supabase,
+      levelId,
+      info.userId,
+      opponentId,
+      playedOn,
+    );
+    if (count >= limit) {
+      return {
+        ok: false,
+        error:
+          `Limite de ${limit} partida${limit > 1 ? "s" : ""} por semestre ` +
+          `contra o mesmo adversário atingido (já há ${count} em ${key}). ` +
+          "Se precisar corrigir um registro, fale com o administrador.",
+      };
+    }
+
     const { error } = await supabase.from("matches").insert({
       level_id: levelId,
       player1_id: info.userId,
       player2_id: opponentId,
-      sets,
+      sets: score.sets,
+      format,
+      walkover_winner: score.walkover_winner,
       status: "pending",
       reported_by: info.userId,
       played_on: playedOn,
@@ -149,6 +246,9 @@ export async function submitMatchAction(
 /**
  * Criar/editar resultado pelo administrador.
  * Resultado confirmado recalcula o ranking do nível na mesma operação.
+ * O administrador NÃO é bloqueado pelo limite de semestre (é dele a
+ * responsabilidade de excepcionar/corrigir — o histórico importado já
+ * veio validado).
  */
 export async function saveMatchAdminAction(
   _prev: ActionResult | null,
@@ -171,12 +271,14 @@ export async function saveMatchAdminAction(
     const statusRaw = String(formData.get("status") ?? "confirmed");
     const status: MatchStatus =
       statusRaw === "pending" ? "pending" : "confirmed";
-    const sets: ScoreSet[] = parseSetStrings(formData.getAll("set"));
+
+    const format = readFormat(formData);
+    const score = readAndValidateScore(formData, format);
+    if (!score.ok) return { ok: false, error: score.error };
 
     const admin = createSupabaseAdmin();
-    const level = await loadLevelConfig(admin, levelId);
-    const validation = validateMatchScore(sets, level.config);
-    if (!validation.ok) return { ok: false, error: validation.error };
+    const level = await getLevelAdmin(admin, levelId);
+    if (!level) return { ok: false, error: "Nível não encontrado." };
 
     await assertPlayersInLevel(admin, levelId, [player1, player2]);
 
@@ -206,7 +308,9 @@ export async function saveMatchAdminAction(
           level_id: levelId,
           player1_id: player1,
           player2_id: player2,
-          sets,
+          sets: score.sets,
+          format,
+          walkover_winner: score.walkover_winner,
           status,
           played_on: playedOn,
           confirmed_by: status === "confirmed" ? info.userId : null,
@@ -219,7 +323,9 @@ export async function saveMatchAdminAction(
         level_id: levelId,
         player1_id: player1,
         player2_id: player2,
-        sets,
+        sets: score.sets,
+        format,
+        walkover_winner: score.walkover_winner,
         status,
         played_on: playedOn,
         reported_by: info.userId,

@@ -131,7 +131,7 @@ export default async function MemberAgendaPage() {
       </div>
 
       <h2 className="page-sub mt">
-        Próximas datas — {days.length === 0 ? "nenhuma marca" : "todos os níveis"}
+        Próximas datas — {days.length === 0 ? "nenhuma marca" : "todos os atletas"}
       </h2>
       {data.kind === "error" ? null : <AgendaList days={days} />}
     </>

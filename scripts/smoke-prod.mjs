@@ -23,8 +23,8 @@ const falha = (t) => {
   erros.push(t);
 };
 
-const PUBLICAS = ["/", "/rules", "/rankings", "/results", "/login", "/register", "/rankings/a", "/results/a"];
-const PRIVADAS = ["/app", "/app/results", "/app/agenda", "/admin", "/admin/players", "/profile"];
+const PUBLICAS = ["/", "/rules", "/rankings", "/results", "/agenda", "/login", "/ativar", "/rankings/challenger", "/results/challenger"];
+const PRIVADAS = ["/app", "/app/results", "/app/agenda", "/admin", "/admin/players", "/admin/convites", "/profile"];
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext();
@@ -82,7 +82,7 @@ await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(1000);
 const posAdmin = new URL(page.url()).pathname;
 const adminTxt = await page.locator("main").innerText().catch(() => "");
-if (posAdmin === "/admin" && /admin|resultado|nível|jogador/i.test(adminTxt)) {
+if (posAdmin === "/admin" && /admin|resultado|jogador|convite|classifica/i.test(adminTxt)) {
   ok(`/admin acessível (${adminTxt.length} chars de conteúdo)`);
 } else {
   falha(`/admin parou em ${posAdmin}`);

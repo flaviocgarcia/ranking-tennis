@@ -54,3 +54,18 @@ export function resultVerdict(
   if (p2 > p1) return "p2";
   return null;
 }
+
+/**
+ * Vencedor considerando o formato: no W.O. não há sets — o vencedor é o
+ * declarado (walkover_winner). Nos demais formatos sai do placar.
+ */
+export function matchVerdict(
+  format: string,
+  walkoverWinner: 1 | 2 | null,
+  sets: Pair[] | null | undefined,
+): "p1" | "p2" | null {
+  if (format === "walkover") {
+    return walkoverWinner === 1 ? "p1" : walkoverWinner === 2 ? "p2" : null;
+  }
+  return resultVerdict(sets);
+}

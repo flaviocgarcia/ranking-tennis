@@ -2,7 +2,7 @@
 
 import { requireAdmin, adminScope } from "@/lib/auth/session";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { computeRanking, type RankingMatch } from "@/lib/domain/ranking";
+import { computeChallengerSnapshot } from "@/lib/domain/challenger";
 import { getLevelAdmin, listLevelsAdmin } from "@/lib/queries/levels";
 import { MATCH_RANKING_COLS } from "@/lib/queries/matches";
 import { PROFILE_MIN_COLS } from "@/lib/queries/players";
@@ -10,9 +10,10 @@ import { getSnapshot } from "@/lib/queries/rankings";
 import type { ActionResult, ConsistencyReport } from "@/types/db";
 
 /**
- * Verificação de consistência (§5): recalcula cada ranking a partir dos
- * RESULTADOS OFICIAIS com a MESMA função de domínio usada na gravação e
- * compara com o snapshot publicado. Não altera nada.
+ * Verificação de consistência: recalcula o snapshot do F CHALLENGER a
+ * partir dos RESULTADOS OFICIAIS com a MESMA função de domínio usada na
+ * gravação e compara com o snapshot publicado (contribuições por partida
+ * e total de jogos). Não altera nada.
  *
  * Executada sob demanda pelo administrador — nunca em leituras.
  */
@@ -44,56 +45,52 @@ export async function verifyRankingsAction(): Promise<
           .select(MATCH_RANKING_COLS)
           .eq("level_id", level.id)
           .eq("status", "confirmed")
+          .order("played_on", { ascending: true })
+          .order("id", { ascending: true })
           .limit(10000),
         getSnapshot(admin, level.id),
       ]);
       if (playersRes.error) throw new Error(playersRes.error.message);
       if (matchesRes.error) throw new Error(matchesRes.error.message);
 
-      const players = (playersRes.data ?? []) as {
-        id: string;
-        name: string;
-        initials: string;
-      }[];
-      const matches = (matchesRes.data ?? []) as RankingMatch[];
+      const players = (playersRes.data ?? []) as { id: string }[];
+      const matches = matchesRes.data ?? [];
 
-      const { entries, invalid } = computeRanking(players, matches, level.config);
+      const { data: calc, invalid } = computeChallengerSnapshot(players, matches);
 
       const diffs: string[] = [];
-      const snapEntries = Array.isArray(snapshot?.data?.entries)
-        ? snapshot.data.entries
-        : null;
+      const snap = snapshot?.data;
 
-      if (!snapEntries) {
+      if (!snap || !Array.isArray(snap.players)) {
         diffs.push("Snapshot ausente (ranking nunca publicado).");
       } else {
-        const snapPos = new Map(snapEntries.map((e) => [e.id, e]));
-        const calcPos = new Map(entries.map((e) => [e.id, e]));
+        if (snap.mc !== calc.mc) {
+          diffs.push(
+            `Jogos no snapshot: ${snap.mc} vs cálculo: ${calc.mc}.`,
+          );
+        }
 
-        for (const e of entries) {
-          const s = snapPos.get(e.id);
+        const calcById = new Map(calc.players.map((p) => [p.id, p.g]));
+        const snapById = new Map(snap.players.map((p) => [p.id, p.g]));
+
+        for (const [id, g] of calcById) {
+          const s = snapById.get(id);
           if (!s) {
-            diffs.push(`Jogador ${e.id}: existe no cálculo, não no snapshot.`);
+            diffs.push(`Jogador ${id}: existe no cálculo, não no snapshot.`);
             continue;
           }
-          if (s.pos !== e.pos || s.pts !== e.pts) {
+          const cs = JSON.stringify(g);
+          const ss = JSON.stringify(s);
+          if (cs !== ss) {
             diffs.push(
-              `Jogador ${e.id}: snapshot ${s.pos}º/${s.pts} pts vs cálculo ${e.pos}º/${e.pts} pts.`,
+              `Jogador ${id}: contribuições divergem — snapshot ${ss} vs cálculo ${cs}.`,
             );
           }
         }
-        for (const s of snapEntries) {
-          if (!calcPos.has(s.id)) {
-            diffs.push(`${s.id}: existe no snapshot, não no cálculo.`);
+        for (const id of snapById.keys()) {
+          if (!calcById.has(id)) {
+            diffs.push(`${id}: existe no snapshot, não no cálculo.`);
           }
-        }
-        if (
-          snapEntries.length !== entries.length &&
-          diffs.length === 0
-        ) {
-          diffs.push(
-            `Quantidades diferentes: snapshot ${snapEntries.length} vs cálculo ${entries.length}.`,
-          );
         }
       }
 

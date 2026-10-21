@@ -75,8 +75,9 @@ export default async function ProfilePage() {
         <section className="card">
           <h2>Meus dados</h2>
           <p className="muted small">
-            E-mail: {info.email ?? "—"} · Nível: {level?.name ?? "não atribuído"} ·
-            Perfil: {profile.role === "admin" ? "administrador" : "jogador"}
+            E-mail: {info.email ?? "—"} · Torneio:{" "}
+            {level?.name ?? "não atribuído"} · Perfil:{" "}
+            {profile.role === "admin" ? "administrador" : "jogador"}
           </p>
           <NameForm initialName={profile.name} />
         </section>

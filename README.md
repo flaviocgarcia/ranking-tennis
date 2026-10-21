@@ -1,73 +1,82 @@
-# 🎾 rankingTenis
+# 🎾 F CHALLENGER — rankingTenis
 
-Ranking de tênis de clube com resultado reportado pelos próprios jogadores,
-painel administrativo de níveis/configuração e páginas públicas leves —
-projetado para rodar **sem custo** na faixa gratuita: **Vercel Hobby +
-Supabase Free**, com **zero rotinas periódicas** (sem cron, polling,
-Realtime ou ISR por tempo).
+Torneio de tênis **F CHALLENGER**: classificação oficial calculada a partir
+dos resultados reportados pelos próprios atletas, com jogos livres, partidas
+**Normais** ou **Grand Slams**, W.O., limite de 2 partidas por semestre contra
+o mesmo adversário e pontos que **caducam ao completar 1 ano**.
+
+Projeto pensado para rodar **sem custo** na faixa gratuita: **Vercel Hobby +
+Supabase Free**, com **zero rotinas periódicas** (sem cron, polling ou
+Realtime) — a janela de 12 meses é aplicada na leitura.
 
 Documentação: [`docs/setup.md`](docs/setup.md) ·
 [`docs/demo-data.md`](docs/demo-data.md) ·
 [`docs/free-tier.md`](docs/free-tier.md) ·
 [`docs/performance.md`](docs/performance.md)
 
+## Regras implementadas (fonte: planilha "F CHALLENGER R25")
+
+| Tema | Regra |
+| --- | --- |
+| Normal | melhor de 3; 3º set é **tiebreakão** (1º a 10, vantagem 2) |
+| Grand Slam | melhor de 5, **sem** tiebreakão |
+| W.O. | incomparecimento: **300 x 50**, vencedor declarado, sem placar |
+| Pontos Normal | vence 2×0 → **300/50**; vence 2×1 → **200/100** |
+| Pontos Grand Slam | vencedor **450** sempre; perdedor 0/1/2 sets → **75/150/300** |
+| Semestre | máx. **2 partidas** por semestre contra o MESMO adversário (validado ao lançar; o admin não é bloqueado) |
+| Validade | os pontos **caducam após 1 ano** — só os últimos 12 meses valem |
+| Empate | mesma posição (1, 2, 2, 4), exibição alfabética, **sem desempate** |
+| Confirmação | resultado entra **pendente** e só pontua após confirmação do admin |
+
+O motor inteiro (pontos, semestres, janela, snapshot) vive em
+`src/lib/domain/challenger.ts` — função pura, usada igualmente pelo app,
+pelos scripts e pela verificação de consistência.
+
 ## Funcionalidades
 
 **Público (páginas estáticas, servidas do CDN)**
 
-- `/` — início com visão geral; `/rules` — regras e configuração vigente.
-- `/rankings` — ranking de todos os níveis ativos; `/rankings/[slug]` —
-  detalhe com tabela, pontuação e critérios de desempate.
-- `/results` — lista pública das partidas **confirmadas** (data, nível,
-  jogadores, placar e vencedor destacado); `/results/[slug]` — jogos de um
-  nível. Jogos pendentes/rejeitados **nunca** aparecem (política RLS da
-  migration `0003`).
-- Atualização **sob demanda**: as páginas são revalidadas apenas quando um
-  resultado oficial é confirmado/editado ou o admin publica — nunca por
-  relógio.
+- `/` — início do F CHALLENGER; `/rules` — regulamento completo.
+- `/rankings` e `/rankings/challenger` — classificação (posição, atleta,
+  pontos, jogos **JGS** e média), com janela de 12 meses aplicada na leitura.
+- `/results` e `/results/challenger` — resultados confirmados com
+  distintivo **Grand Slam** / **W.O.**; pendentes/rejeitados nunca aparecem.
+- `/agenda` — quem marcou disponibilidade nas próximas datas.
+- Revalidação **sob demanda** (`revalidatePath` em escritas oficiais +
+  `revalidate = 3600` nas páginas de ranking) — nada roda por relógio.
+
+**Ativação de conta (sem auto-cadastro)**
+
+- Os atletas são pré-cadastrados pelo administrador em
+  `/admin/convites` e recebem um **código de ativação** (8 caracteres, sem
+  caracteres ambíguos — envio por WhatsApp).
+- Em `/ativar` (o antigo `/register` redireciona) o atleta digita o código,
+  confere o nome e escolhe **e-mail + senha** — a conta nasce aprovada e
+  entra automaticamente. O código é de **uso único**.
 
 **Jogador (`/app`)**
 
-- Informar resultado (placar por sets, validado no servidor; empate de sets
-  exige o tiebreakão) — entra como **pendente** até o admin confirmar.
-- Histórico dos próprios resultados com opção de **retirar** o pedido
-  pendente; ranking do seu nível e suas últimas partidas no painel.
-- Perfil (`/profile`): trocar nome e senha, código de vínculo do Telegram.
-- Primeiro acesso com senha temporária é **obrigado a definir a própria
-  senha**.
-- **Auto-cadastro** em `/register`: a pessoa escolhe o nível em que joga e
-  fica **aguardando aprovação** — entra no sistema, mas só aparece no
-  ranking e pode informar resultados depois que o administrador aprovar.
+- Informar resultado com formato (Normal / Grand Slam / W.O.), validado no
+  servidor — inclui o limite de 2 por semestre e a checagem de jogo no mesmo
+  dia. Entra **pendente** até o admin confirmar.
+- Histórico dos próprios resultados com opção de **retirar** o pendente;
+  painel com classificação (janela corrente), últimos jogos e agenda.
+- Perfil (`/profile`): nome, senha e código de vínculo do Telegram.
 
 **Administrador (`/admin`)**
 
-- **Níveis/categorias**: criar, editar, ativar/desativar (A, B, C, D e
-  extensões como Feminino — futuramente Duplas).
-- **Configuração por nível**: formato (2 sets + tiebreakão de 10 pts, ou
-  1 set cada com super tiebreak), **pontuação** (ex.: 3 pts para 2×0, 2
-  pts para vitória com tiebreak; **derrotado no tiebreakão ganha 1 ponto —
-  ligado por padrão** e configurável) e **ordem dos critérios de desempate**
-  (vitórias → confronto direto → saldo de sets → saldo de games — a ordem
-  é configurável). O ranking é ordenado **por pontos**; a cadeia de desempate
-  entra apenas dentro de cada grupo empatado em pontos.
-- **Vários administradores**: no cadastro/edição de usuário é possível
-  definir `admin` **geral** (todos os níveis) ou **restrito a um nível**
-  (gerencia apenas jogadores e resultados daquele nível). O nível em que o
-  administrador **joga** é independente do escopo de administração, então
-  um admin pode jogar e administrar o próprio nível.
-- **Usuários**: criar jogador (gera senha temporária exibida uma vez),
-  editar nível/perfil/ativo, redefinir senha e **aprovar auto-cadastros**.
-  Jogador criado pelo admin já nasce aprovado.
+- **Convites**: gerar/regenerar/remover código de ativação por atleta.
+- **Jogadores**: criar conta (senha temporária exibida uma vez), editar,
+  redefinir senha, ativar/desativar.
 - **Resultados**: lançar, confirmar/rejeitar, editar e excluir; filtros e
-  paginação. Confirmar recalcula e republica **somente o ranking afetado**.
-- **Verificação de consistência** (`/admin/verify`): recalcula cada ranking
-  a partir dos resultados oficiais com a mesma função de domínio e compara
-  com o publicado — só leitura, sob demanda.
+  paginação. Confirmar recalcula e republica a classificação na hora.
+- **Verificação de consistência** (`/admin/verify`): recalcula a partir dos
+  resultados com a MESMA função de domínio e compara com o publicado — só
+  leitura, sob demanda.
 
-**Telegram (100% opcional)** — bot com `/start`, `/ajuda`, `/vincular`,
-`/desvincular`, `/ranking` (top 10), `/meus` (últimos 5) e
-`/registrar JOGADOR 6-4 7-5`. Sem token configurado, o site funciona
-normalmente e a rota do webhook responde 404.
+**Telegram (100% opcional, webhook atualmente pausado)** — `/start`,
+`/ajuda`, `/vincular`, `/desvincular`, `/ranking`, `/meus` e
+`/registrar JOGADOR 6-4 7-5` (registra como Normal).
 
 ## Stack
 
@@ -80,54 +89,55 @@ imagens externas — **zero requisições de terceiros** no navegador).
 ```bash
 npm install
 cp .env.example .env.local   # preencha com as chaves do Supabase
-# aplique supabase/migrations/0001..0005 e (opcional) seed.sql no SQL Editor
+# aplique supabase/migrations/0001..0007 no SQL Editor (ou psql -f)
 npm run dev                  # http://localhost:3000
 ```
 
+Importação da planilha (wipe total da base — ver `docs/setup.md`):
+
+```bash
+npm run fch:export                        # xlsx -> /tmp/opencode/fchallenger.json
+npm run fch:import -- --yes               # apaga e reimporta tudo
+```
+
 Scripts: `npm run dev` · `npm run build` · `npm run typecheck` ·
-`npm run demo:seed` / `npm run demo:reset` (massa de teste — ver
+`npm run demo:seed` / `npm run demo:reset` (contas E2E — ver
 [`docs/demo-data.md`](docs/demo-data.md)) ·
-`npm run rankings:rebuild` (republica todos os rankings com a configuração
-vigente) · `npm run telegram:set-webhook`.
+`npm run rankings:rebuild` (republica a classificação com o motor vigente) ·
+`npm run telegram:set-webhook`.
 
 Deploy: `docs/setup.md` (inclui promoção do primeiro administrador,
 backup, pausa/reativação do Supabase).
 
 ## Arquitetura (resumo)
 
-- **Snapshot do ranking**: o ranking é materializado como JSONB numérico
-  (`ranking_snapshots`); nomes são hidratados em blocos de ≤100 ids — sem
-  N+1 e sem recálculo por visitante.
-- **Páginas públicas estáticas**: não leem cookies nem banco; revalidação
-  por `revalidatePath` apenas em escritas oficiais.
-- **RLS + chave de service**: jogadores operam sob RLS (e até entre
-  autenticados `email`/código do bot são privados — grants de coluna);
-  ações administrativas rodam no servidor após `requireAdmin()` com
-  `SUPABASE_SERVICE_ROLE_KEY` (nunca no navegador).
-- **Escopo de administrador**: `admin_level_id` separa "onde administra" de
-  `level_id` ("onde joga"); a checagem é feita em cada server action e
-  página (a chave de service ignora RLS, então o escopo é validado no
-  servidor, não só escondido na interface).
-- **Aprovação de cadastro**: `pending_approval` nasce `true` no trigger
-  (inclusive se o cliente tentar forjar metadata) e só o admin o desliga;
-  RLS também impede que um cadastro pendente insira resultados direto pela
-  API.
+- **Snapshot com histórico**: `ranking_snapshots.data` guarda as
+  contribuições `[data, pontos]` de cada partida; a **janela de 12 meses é
+  aplicada na leitura** (páginas públicas com `revalidate = 3600`) — os
+  pontos caducam sozinhos, sem cron.
+- **Páginas públicas estáticas**: não leem cookies; revalidação por
+  `revalidatePath` apenas em escritas oficiais (confirmação, edição,
+  exclusão de resultado).
+- **RLS + chave de service**: jogadores operam sob RLS (e-mails e códigos
+  privados — grants de coluna); `invites` é tabela **privada** (só
+  `service_role`) porque o código de ativação é credencial.
+- **Ativação por código**: `/ativar` valida o código (etapa 1: mostra o
+  nome) e cria/ativa a conta no servidor (etapa 2), com uso único via
+  condição `.is("activated_at", null)` — fecha corrida de duplo envio.
 - **Sem middleware** para manter as páginas públicas estáticas.
 - **Consulta econômica**: colunas explícitas, paginação, `count` na própria
   query, leituras em `Promise.all`.
 
 ## Limitações conhecidas (MVP)
 
-- **Duplas/pares não implementadas** — a estrutura (`levels`, `matches`)
-  foi deixada extensível para um futuro nível de duplas, mas o par de
-  jogadores por resultado não existe hoje.
-- **Sem histórico de posições**: só o ranking vigente é publicado (o
-  snapshot guarda a data do cálculo); não há notificação de subida/queda.
-- **Sem envio de imagem de placar** nem anexos; o placar é textual.
+- **Duplas/pares não implementadas** — estrutura deixada extensível.
+- **Sem histórico de posições**: só a classificação vigente é publicada
+  (o snapshot guarda a data do cálculo).
+- **Histórico da planilha**: 1 par teve 3 partidas no mesmo semestre em
+  2026-S1 (violação pré-existente, mantida na importação — a validação vale
+  para novos lançamentos).
 - **Escala protegida**: recálculo limitado a 2.000 jogadores e 10.000
-  resultados por nível (proteção de memória da função serverless).
-- **Busca por nome** usa `ilike` simples — suficiente para dezenas de
-  jogadores; `pg_trgm` é uma evolução documentada.
+  resultados por nível (proteção da função serverless).
 - **Planos gratuitos têm limites e pausas** (Supabase pausa projetos
   inativos após ~1 semana): leia `docs/free-tier.md` — **nenhum custo é
   garantido como zero**.
@@ -135,14 +145,15 @@ backup, pausa/reativação do Supabase).
 ## Estrutura
 
 ```
-src/app/(site)/     páginas públicas estáticas (/, rules, rankings, results)
-src/app/login       autenticação (register em src/app/register)
-src/app/app/        área do jogador         (/app, /app/results)
-src/app/admin/      painel admin            (níveis, jogadores, resultados, verify)
+src/app/(site)/     páginas públicas estáticas (/, rules, rankings, results, agenda)
+src/app/ativar      ativação de conta por código (login em src/app/login)
+src/app/app/        área do jogador         (/app, /app/results, /app/agenda)
+src/app/admin/      painel admin            (convites, jogadores, resultados, verify)
 src/actions/        server actions
 src/lib/queries/    camada de dados (colunas explícitas, paginação)
-src/lib/domain/     regras puras (formato, pontuação, ranking, iniciais)
+src/lib/domain/     regras puras (challenger, formato, pontuação, agenda)
 src/lib/results/    montagem da lista pública de jogos (funções puras)
 supabase/migrations schema versionado + RLS
+scripts/            export da planilha, importação/wipe, demos, smoke E2E
 docs/               free-tier, setup, performance, demo-data
 ```

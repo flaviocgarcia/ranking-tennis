@@ -10,8 +10,8 @@ import {
   toResultRows,
   type ResultViewRow,
 } from "@/lib/results/view";
-import { describeFormat, describeScoring } from "@/lib/describe";
 import { formatDate, scoreText } from "@/lib/format";
+import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
 import type { LevelRow } from "@/types/db";
 
 /**
@@ -112,8 +112,8 @@ export default async function PublicLevelResultsPage({ params }: PageProps) {
         Resultados <span className="muted small">({level.name})</span>
       </h1>
       <p className="page-sub">
-        Partidas <strong>confirmadas</strong> · {describeFormat(level.config)}{" "}
-        {describeScoring(level.config)} ·{" "}
+        Partidas <strong>confirmadas</strong> · Normal: melhor de 3 (3º set =
+        tiebreakão a 10) · Grand Slam: melhor de 5 ·{" "}
         <Link href={`/rankings/${level.slug}`}>Ver classificação</Link>
       </p>
 
@@ -139,6 +139,7 @@ export default async function PublicLevelResultsPage({ params }: PageProps) {
                 <th>Data</th>
                 <th>Jogadores</th>
                 <th>Placar</th>
+                <th className="col-sm">Formato</th>
               </tr>
             </thead>
             <tbody>
@@ -157,8 +158,13 @@ export default async function PublicLevelResultsPage({ params }: PageProps) {
                     </span>
                   </td>
                   <td>
-                    <strong>{scoreText(m.sets)}</strong>
+                    <strong>
+                      {m.format === "walkover"
+                        ? `W.O. (${m.winner === "p1" ? m.p1 : m.p2})`
+                        : scoreText(m.sets)}
+                    </strong>
                   </td>
+                  <td className="col-sm">{MATCH_FORMAT_LABELS[m.format]}</td>
                 </tr>
               ))}
             </tbody>

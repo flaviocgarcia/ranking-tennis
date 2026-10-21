@@ -5,7 +5,8 @@
  * confirmadas) + os nomes hidratados em blocos e devolvem o que a tabela
  * renderiza. Nenhuma consulta aqui — a economia vive em `src/lib/queries`.
  */
-import { resultVerdict } from "@/lib/format";
+import { matchVerdict } from "@/lib/format";
+import type { MatchFormat } from "@/lib/domain/challenger";
 import type { PublicMatchRow } from "@/lib/queries/matches";
 import type { ScoreSet } from "@/lib/domain/config";
 
@@ -17,6 +18,8 @@ export interface ResultViewRow {
   p1: string;
   p2: string;
   sets: ScoreSet[];
+  /** Normal (melhor de 3), Grand Slam (melhor de 5) ou W.O. */
+  format: MatchFormat;
   winner: "p1" | "p2" | null;
 }
 
@@ -48,7 +51,8 @@ export function toResultRows(
       p1: names.get(m.player1_id)?.name ?? "?",
       p2: names.get(m.player2_id)?.name ?? "?",
       sets: m.sets,
-      winner: resultVerdict(m.sets),
+      format: m.format,
+      winner: matchVerdict(m.format, m.walkover_winner, m.sets),
     };
   });
 }

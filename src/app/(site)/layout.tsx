@@ -21,10 +21,10 @@ export default function SiteLayout({
           </Link>
           <nav className="nav">
             <Link href="/">Início</Link>
-            <Link href="/rankings">Classificações</Link>
+            <Link href="/rankings">Classificação</Link>
             <Link href="/results">Resultados</Link>
             <Link href="/agenda">Agenda</Link>
-            <Link href="/rules">Regras</Link>
+            <Link href="/rules">Regulamento</Link>
             <Link href="/login" className="subtle">
               Área do jogador
             </Link>
@@ -35,11 +35,11 @@ export default function SiteLayout({
       <footer className="site-footer">
         <div className="container inner">
           <span>
-            {clubName()} — classificação oficial de tênis
+            {clubName()} — classificação oficial do F CHALLENGER
           </span>
           <span>
-            <Link href="/rules">Regras dos rankings</Link> ·{" "}
-            <Link href="/rankings">Classificações</Link> ·{" "}
+            <Link href="/rules">Regulamento</Link> ·{" "}
+            <Link href="/rankings">Classificação</Link> ·{" "}
             <Link href="/results">Resultados</Link> ·{" "}
             <Link href="/agenda">Agenda</Link>
           </span>

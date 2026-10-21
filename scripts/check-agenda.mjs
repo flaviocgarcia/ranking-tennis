@@ -10,7 +10,7 @@
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE || "http://localhost:3000";
-const EMAIL = process.env.SMOKE_EMAIL || "demo-rafael.almeida@example.com";
+const EMAIL = process.env.SMOKE_EMAIL || "demo-player@example.com";
 const PASSWORD = process.env.SMOKE_PASSWORD || "Demo@12345";
 
 const erros = [];
@@ -166,11 +166,11 @@ try {
   await ap.goto(`${BASE}/agenda`, { waitUntil: "domcontentloaded" });
   const textoPub = (await ap.locator("main").innerText()).replace(/\s+/g, " ");
   if (textoPub.includes(DATA_BR) && textoPub.includes("noite")) {
-    ok("agenda pública mostra a data com período (nível A)");
+    ok("agenda pública mostra a data com período");
   } else {
     falha(`página pública sem a marca | trecho: "${textoPub.slice(0, 160)}"`);
   }
-  if (/Rafael/i.test(textoPub)) ok("nome do jogador visível na agenda pública");
+  if (/Demo/i.test(textoPub)) ok("nome do jogador visível na agenda pública");
   else falha("nome do jogador ausente na agenda pública");
   await anon.close();
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { RankingSnapshotData } from "@/lib/domain/config";
+import type { ChallengerSnapshotData } from "@/lib/domain/challenger";
 import type { SnapshotRow } from "@/types/db";
 
 /** Snapshot do ranking de um nível (leitura pública/anon). */
@@ -38,7 +38,7 @@ export async function getSnapshotsMeta(
 export async function saveSnapshot(
   supabase: SupabaseClient,
   levelId: string,
-  data: RankingSnapshotData,
+  data: ChallengerSnapshotData,
 ): Promise<void> {
   const { error } = await supabase.from("ranking_snapshots").upsert({
     level_id: levelId,

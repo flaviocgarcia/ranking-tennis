@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Remove TODA a massa de teste criada por `npm run demo:seed`:
- * usuários `demo-*`, partidas `demo-*` e os snapshots publicados.
- * Dados reais (seu admin, seus jogadores) permanecem intactos.
+ * Remove as contas de demonstração (`demo-*`) criadas por
+ * `npm run demo:seed`. Dados reais (atletas, partidas, códigos,
+ * classificação) permanecem intactos — a massa demo tem 0 jogos.
  */
 import { buildAdminClient, cleanupDemo, loadEnv } from "./_demo-shared.mjs";
 
 loadEnv();
 const admin = buildAdminClient();
 
-console.log("Removendo massa de teste...");
+console.log("Removendo contas de demonstração...");
 await cleanupDemo(admin, { log: (m) => console.log("  " + m) });
-console.log("Pronto. Rankings públicos voltaram ao estado vazio.");
+console.log("Pronto. Rode `npm run demo:seed` para recriá-las.");

@@ -14,7 +14,7 @@ import type { AgendaDay } from "@/lib/domain/availability";
 export const metadata: Metadata = {
   title: "Agenda",
   description:
-    "Quem quer jogar nas próximas datas — disponibilidade de jogadores por dia e nível.",
+    "Quem quer jogar nas próximas datas — disponibilidade dos jogadores por dia.",
 };
 
 interface PageData {
@@ -72,9 +72,9 @@ export default async function PublicAgendaPage() {
       <p className="mt">
         <Link href="/app/agenda">Marcar minha disponibilidade →</Link>
         {" · "}
-        <Link href="/rankings">Classificações</Link>
+        <Link href="/rankings">Classificação</Link>
         {" · "}
-        <Link href="/rules">Regras</Link>
+        <Link href="/rules">Regulamento</Link>
       </p>
       <p className="muted small">
         Exibindo os próximos {AGENDA_HORIZON_DAYS} dias · datas passadas saem

@@ -4,18 +4,17 @@
  * Princípios de economia:
  * - Webhook HTTPS (sem polling, sem processo residente).
  * - Reutiliza as mesmas funções de domínio do sistema web
- *   (validateMatchScore, computeRanking via snapshot, mesmas consultas).
+ *   (validateChallengerScore, snapshot do F CHALLENGER, mesmas consultas).
  * - Responde APENAS o pedido do usuário, com limites de histórico
  *   (top 10 do ranking, últimos 5 resultados).
  * - Sem notificações automáticas, sem envio em massa.
  */
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { validateMatchScore } from "@/lib/domain/match";
 import { formatDate, scoreText } from "@/lib/format";
 import { listRecentMatchesOf } from "@/lib/queries/matches";
 import { getSnapshot } from "@/lib/queries/rankings";
 import { hydrateNames } from "@/lib/queries/players";
-import { toViewRows } from "@/lib/ranking/view";
+import { applyWindow, toViewRows, validateChallengerScore, windowStart } from "@/lib/domain/challenger";
 import { siteUrl } from "@/lib/env";
 import type { ProfileRow } from "@/types/db";
 import type { ScoreSet } from "@/lib/domain/config";
@@ -147,28 +146,33 @@ async function cmdRanking(
   }
 
   const snapshot = await getSnapshot(admin, levelId);
-  if (!snapshot || snapshot.data.entries.length === 0) {
+  if (!snapshot || snapshot.data.players.length === 0) {
     return { chatId, text: "A classificação ainda não foi publicada." };
+  }
+
+  // Mesma janela de 12 meses da página pública (caducidade dos pontos).
+  const today = new Date().toISOString().slice(0, 10);
+  const windowRows = applyWindow(snapshot.data, windowStart(today));
+  if (windowRows.length === 0) {
+    return { chatId, text: "Nenhum jogo na janela de 12 meses." };
   }
 
   const names = await hydrateNames(
     admin,
-    snapshot.data.entries.map((e) => e.id),
+    windowRows.map((r) => r.id),
   );
-  const rows = toViewRows(snapshot.data.entries, names);
+  const rows = toViewRows(windowRows, names);
 
   const lines: string[] = [`Classificação — ${levelName}`];
   for (const row of rows.slice(0, 10)) {
-    lines.push(
-      `${row.pos}. ${row.name} — ${row.pts} pts (${row.w}V-${row.l}D)`,
-    );
+    lines.push(`${row.pos}. ${row.name} — ${row.pts} pts (${row.games} jogos)`);
   }
   const mineIdx = rows.findIndex((r) => r.id === profile.id);
   if (mineIdx >= 10) {
     const mine = rows[mineIdx];
     lines.push(
       `...`,
-      `${mine.pos}. ${mine.name} (você) — ${mine.pts} pts (${mine.w}V-${mine.l}D)`,
+      `${mine.pos}. ${mine.name} (você) — ${mine.pts} pts (${mine.games} jogos)`,
     );
   }
   lines.push(`Atualizado em ${formatDate(snapshot.computed_at)}`);
@@ -282,7 +286,7 @@ async function cmdRegistrar(
     return [a, b] as ScoreSet;
   });
 
-  const validation = validateMatchScore(sets, levelRow.config);
+  const validation = validateChallengerScore(sets, "normal");
   if (!validation.ok) return { chatId, text: validation.error };
 
   // Mesma checagem de duplicidade do formulário web.
@@ -306,6 +310,8 @@ async function cmdRegistrar(
     player1_id: profile.id,
     player2_id: chosen.id,
     sets,
+    format: "normal",
+    walkover_winner: null,
     status: "pending",
     reported_by: profile.id,
     played_on: new Date().toISOString().slice(0, 10),

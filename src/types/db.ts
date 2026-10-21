@@ -1,4 +1,5 @@
-import type { LevelConfig, RankingSnapshotData, ScoreSet } from "@/lib/domain/config";
+import type { LevelConfig, ScoreSet } from "@/lib/domain/config";
+import type { ChallengerSnapshotData, MatchFormat } from "@/lib/domain/challenger";
 
 export type Role = "admin" | "player";
 export type MatchStatus = "pending" | "confirmed" | "rejected";
@@ -41,6 +42,10 @@ export interface MatchRow {
   player1_id: string;
   player2_id: string;
   sets: ScoreSet[];
+  /** Formato: normal (melhor de 3), grand_slam (melhor de 5) ou walkover. */
+  format: MatchFormat;
+  /** Vencedor do W.O. (1 = player1, 2 = player2); null nos demais formatos. */
+  walkover_winner: 1 | 2 | null;
   status: MatchStatus;
   reported_by: string | null;
   confirmed_by: string | null;
@@ -54,7 +59,7 @@ export interface MatchRow {
 
 export interface SnapshotRow {
   level_id: string;
-  data: RankingSnapshotData;
+  data: ChallengerSnapshotData;
   computed_at: string;
 }
 

@@ -1,21 +1,21 @@
 import { Avatar } from "@/components/Avatar";
-import type { RankingViewRow } from "@/lib/ranking/view";
+import type { ChallengerViewRow } from "@/lib/domain/challenger";
 
-/** Tabela de classificação (usada na página pública estática). */
-export function RankingTable({ rows }: { rows: RankingViewRow[] }) {
+/**
+ * Tabela da classificação do F CHALLENGER (página pública estática).
+ * Mesmas colunas da planilha: POS · ATLETA · PONTOS · JGS · MÉDIA.
+ */
+export function RankingTable({ rows }: { rows: ChallengerViewRow[] }) {
   return (
     <div className="table-wrap">
       <table className="table">
         <thead>
           <tr>
             <th>#</th>
-            <th>Jogador</th>
-            <th className="num">Pts</th>
-            <th className="num">V</th>
-            <th className="num">D</th>
-            <th className="num col-sm">Sets</th>
-            <th className="num col-sm">Games</th>
-            <th className="num col-sm">P</th>
+            <th>Atleta</th>
+            <th className="num">Pontos</th>
+            <th className="num">JGS</th>
+            <th className="num">Média</th>
           </tr>
         </thead>
         <tbody>
@@ -35,15 +35,13 @@ export function RankingTable({ rows }: { rows: RankingViewRow[] }) {
               <td className="num">
                 <strong>{r.pts}</strong>
               </td>
-              <td className="num">{r.w}</td>
-              <td className="num">{r.l}</td>
-              <td className="num col-sm">
-                {r.sw}-{r.sl}
+              <td className="num">{r.games}</td>
+              <td className="num">
+                {r.avg.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}
               </td>
-              <td className="num col-sm">
-                {r.gw}-{r.gl}
-              </td>
-              <td className="num col-sm">{r.mp}</td>
             </tr>
           ))}
         </tbody>

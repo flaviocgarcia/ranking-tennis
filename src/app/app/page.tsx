@@ -6,10 +6,15 @@ import { getSnapshot } from "@/lib/queries/rankings";
 import { hydrateNames } from "@/lib/queries/players";
 import { listRecentMatchesOf } from "@/lib/queries/matches";
 import { getLevelAdmin } from "@/lib/queries/levels";
-import { toViewRows } from "@/lib/ranking/view";
+import { applyWindow, toViewRows, windowStart } from "@/lib/domain/challenger";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatDate, scoreText, resultVerdict } from "@/lib/format";
+import {
+  formatDate,
+  scoreText,
+  matchVerdict,
+} from "@/lib/format";
+import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
 import { clubName } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Painel do jogador" };
@@ -29,9 +34,6 @@ export default async function DashboardPage() {
 
   // Auto-cadastro ainda não aprovado: nada de ranking/resultados.
   if (profile.pending_approval) {
-    const chosenLevel = profile.level_id
-      ? await getLevelAdmin(supabase, profile.level_id)
-      : null;
     return (
       <>
         <h1 className="page-title">Cadastro em análise</h1>
@@ -39,8 +41,7 @@ export default async function DashboardPage() {
           <strong>Seu cadastro aguarda aprovação do administrador.</strong>
           <br />
           Você já pode entrar no sistema, mas só aparece no ranking e pode
-          informar resultados depois da aprovação. Nível escolhido no cadastro:{" "}
-          <strong>{chosenLevel?.name ?? "—"}</strong>.
+          informar resultados depois da aprovação.
         </div>
         <p className="muted">
           Enquanto isso, consulte as{" "}
@@ -64,19 +65,23 @@ export default async function DashboardPage() {
     listRecentMatchesOf(supabase, profile.id, RECENT),
   ]);
 
-  const entries = Array.isArray(snapshot?.data?.entries)
-    ? snapshot.data.entries
+  // Janela de 12 meses aplicada na leitura (mesma regra da página pública).
+  const today = new Date().toISOString().slice(0, 10);
+  const windowRows = snapshot
+    ? applyWindow(snapshot.data, windowStart(today))
     : [];
 
-  // Hidrata apenas top 5 + a própria linha (1 consulta, poucos ids).
-  const topEntries = entries.slice(0, TOP);
-  const mine = entries.find((e) => e.id === profile.id) ?? null;
-  const idsToLoad = [...topEntries.map((e) => e.id), ...(mine ? [mine.id] : [])];
-  const names = idsToLoad.length > 0
-    ? await hydrateNames(supabase, idsToLoad)
-    : new Map<string, { name: string; initials: string }>();
-  const topRows = toViewRows(topEntries, names);
-  const mineRow = mine ? toViewRows([mine], names)[0] : null;
+  // Hidrata todos os nomes da janela (1 consulta — poucos dezenas).
+  const names =
+    windowRows.length > 0
+      ? await hydrateNames(
+          supabase,
+          windowRows.map((r) => r.id),
+        )
+      : new Map<string, { name: string; initials: string }>();
+  const allRows = toViewRows(windowRows, names);
+  const topRows = allRows.slice(0, TOP);
+  const mineRow = allRows.find((r) => r.id === profile.id) ?? null;
 
   return (
     <>
@@ -111,9 +116,9 @@ export default async function DashboardPage() {
           </div>
           <div className="stat">
             <span className="value">
-              {mineRow ? `${mineRow.w}-${mineRow.l}` : "—"}
+              {mineRow ? mineRow.games : "—"}
             </span>
-            <span className="label">Vitórias-Derrotas</span>
+            <span className="label">Jogos (JGS)</span>
           </div>
         </div>
         <p className="mt" style={{ marginBottom: 0 }}>
@@ -144,7 +149,7 @@ export default async function DashboardPage() {
                   <th>#</th>
                   <th>Jogador</th>
                   <th className="num">Pts</th>
-                  <th className="num">V-D</th>
+                  <th className="num">JGS</th>
                 </tr>
               </thead>
               <tbody>
@@ -161,9 +166,7 @@ export default async function DashboardPage() {
                     <td className="num">
                       <strong>{r.pts}</strong>
                     </td>
-                    <td className="num">
-                      {r.w}-{r.l}
-                    </td>
+                    <td className="num">{r.games}</td>
                   </tr>
                 ))}
                 {mineRow && mineRow.pos > TOP && (
@@ -178,9 +181,7 @@ export default async function DashboardPage() {
                     <td className="num">
                       <strong>{mineRow.pts}</strong>
                     </td>
-                    <td className="num">
-                      {mineRow.w}-{mineRow.l}
-                    </td>
+                    <td className="num">{mineRow.games}</td>
                   </tr>
                 )}
               </tbody>
@@ -211,7 +212,7 @@ export default async function DashboardPage() {
                   <th>Data</th>
                   <th>Adversário</th>
                   <th>Placar</th>
-                  <th className="col-sm">Nível</th>
+                  <th className="col-sm">Formato</th>
                   <th>Situação</th>
                 </tr>
               </thead>
@@ -219,8 +220,13 @@ export default async function DashboardPage() {
                 {recent.map((m) => {
                   const isP1 = m.player1_id === profile.id;
                   const opponent = isP1 ? m.p2 : m.p1;
-                  const verdict = resultVerdict(m.sets);
-                  const won = verdict && ((isP1 && verdict === "p1") || (!isP1 && verdict === "p2"));
+                  const verdict = matchVerdict(
+                    m.format,
+                    m.walkover_winner,
+                    m.sets,
+                  );
+                  const won =
+                    verdict && ((isP1 && verdict === "p1") || (!isP1 && verdict === "p2"));
                   return (
                     <tr key={m.id}>
                       <td>{formatDate(m.played_on)}</td>
@@ -231,12 +237,14 @@ export default async function DashboardPage() {
                         </span>
                       </td>
                       <td>
-                        {scoreText(m.sets)}{" "}
+                        {m.format === "walkover"
+                          ? "W.O."
+                          : scoreText(m.sets)}{" "}
                         <span className="muted small">
                           ({won ? "V" : verdict ? "D" : "—"})
                         </span>
                       </td>
-                      <td className="col-sm">{m.level?.name}</td>
+                      <td className="col-sm">{MATCH_FORMAT_LABELS[m.format]}</td>
                       <td>
                         <StatusBadge status={m.status} />
                       </td>

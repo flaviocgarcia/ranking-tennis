@@ -32,7 +32,7 @@ export default async function AppLayout({
             <Link href="/app/agenda">Agenda</Link>
             {!isPending && <Link href="/app/results/new">Novo resultado</Link>}
             <Link href="/rankings" className="subtle">
-              Classificações
+              Classificação
             </Link>
             <Link href="/profile" className="subtle">
               Perfil

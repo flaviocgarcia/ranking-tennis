@@ -25,7 +25,7 @@ export default async function AdminLayout({
           <nav className="nav">
             <Link href="/admin">Painel</Link>
             <Link href="/admin/results">Resultados</Link>
-            {!scoped && <Link href="/admin/levels">Níveis</Link>}
+            {!scoped && <Link href="/admin/convites">Convites</Link>}
             <Link href="/admin/players">Jogadores</Link>
             <Link href="/admin/verify">Verificar</Link>
             <Link href="/app" className="subtle">

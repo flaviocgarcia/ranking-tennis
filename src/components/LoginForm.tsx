@@ -71,7 +71,7 @@ export function LoginForm() {
         {pending ? "Entrando..." : "Entrar"}
       </button>
       <p className="small muted">
-        Ainda não tem conta? <Link href="/register">Cadastre-se</Link>
+        Ainda não tem conta? <Link href="/ativar">Ative seu cadastro</Link>
       </p>
     </form>
   );

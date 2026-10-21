@@ -66,8 +66,8 @@ export default async function NewResultPage() {
     <>
       <h1 className="page-title">Informar resultado</h1>
       <p className="page-sub">
-        Nível <strong>{level.name}</strong> — o resultado entra como pendente
-        até o administrador confirmar.
+        <strong>{level.name}</strong> — escolha o formato (Normal, Grand Slam ou
+        W.O.); o resultado entra como pendente até o administrador confirmar.
       </p>
       <div className="card">
         <MatchForm mode="player" levels={[toLevelOpt(level)]} players={players} />

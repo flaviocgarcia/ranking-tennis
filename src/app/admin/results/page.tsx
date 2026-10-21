@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Pagination } from "@/components/Pagination";
 import { MatchAdminActions } from "@/components/MatchAdminActions";
 import { formatDate, scoreText } from "@/lib/format";
+import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
 import type { MatchStatus } from "@/types/db";
 
 export const metadata: Metadata = { title: "Resultados" };
@@ -104,7 +105,7 @@ export default async function AdminResultsPage({
             <thead>
               <tr>
                 <th>Data</th>
-                <th className="col-sm">Nível</th>
+                <th className="col-sm">Formato</th>
                 <th>Jogadores</th>
                 <th>Placar</th>
                 <th className="col-sm">Fonte</th>
@@ -116,7 +117,7 @@ export default async function AdminResultsPage({
               {results.rows.map((m) => (
                 <tr key={m.id}>
                   <td>{formatDate(m.played_on)}</td>
-                  <td className="col-sm">{m.level?.name}</td>
+                  <td className="col-sm">{MATCH_FORMAT_LABELS[m.format]}</td>
                   <td>
                     <span className="small">
                       {m.p1?.name ?? "?"} <span className="muted">x</span>{" "}
@@ -124,7 +125,11 @@ export default async function AdminResultsPage({
                     </span>
                   </td>
                   <td>
-                    <strong>{scoreText(m.sets)}</strong>
+                    <strong>
+                      {m.format === "walkover"
+                        ? `W.O. (${m.walkover_winner === 1 ? m.p1?.name ?? "?" : m.p2?.name ?? "?"})`
+                        : scoreText(m.sets)}
+                    </strong>
                   </td>
                   <td className="col-sm muted small">
                     {m.source === "telegram"

@@ -67,19 +67,21 @@ export function buildAdminClient() {
 }
 
 /**
- * Compila `src/lib/domain` (TypeScript puro, sem imports externos) para um
- * diretório temporário e devolve a MESMA função `computeRanking` usada pelo
- * app. Assim o snapshot gerado pela massa de teste é idêntico ao que o
- * `/admin/verify` recalcula — nunca há divergência de regra.
+ * Compila `src/lib/domain/challenger.ts` (TypeScript puro; o tsc segue os
+ * imports `./config` e `./match`) para um diretório temporário e devolve
+ * o MESMO módulo usado pelo app — `computeChallengerSnapshot`,
+ * `applyWindow`, `toViewRows`, `windowStart`. Assim o snapshot gravado por
+ * aqui é idêntico ao que o app grava e ao que `/admin/verify` recalcula —
+ * nunca há divergência de regra.
  */
-export function loadComputeRanking() {
-  const outDir = path.join(os.tmpdir(), "rankingtenis-demo-domain");
+export function loadChallengerDomain() {
+  const outDir = path.join(os.tmpdir(), "rankingtenis-challenger-domain");
   mkdirSync(outDir, { recursive: true });
   const tsc = path.join(ROOT, "node_modules", ".bin", "tsc");
   execFileSync(
     tsc,
     [
-      "src/lib/domain/ranking.ts",
+      "src/lib/domain/challenger.ts",
       "--outDir",
       outDir,
       "--module",
@@ -88,13 +90,20 @@ export function loadComputeRanking() {
       "es2022",
       "--moduleResolution",
       "node",
+      // Mesmas flags do app (tsconfig strict) — a compilação precisa
+      // aceitar exatamente o que o typecheck do app aceita.
+      "--strict",
       "--skipLibCheck",
       "--esModuleInterop",
     ],
     { cwd: ROOT, stdio: "inherit" },
   );
   const require = createRequire(import.meta.url);
-  return require(path.join(outDir, "ranking.js")).computeRanking;
+  const mod = require(path.join(outDir, "challenger.js"));
+  if (typeof mod.computeChallengerSnapshot !== "function") {
+    throw new Error("domínio compilado sem computeChallengerSnapshot");
+  }
+  return mod;
 }
 
 /** Executa `worker` em paralelo, com concorrência limitada. */
@@ -128,8 +137,10 @@ export function initialsOf(name) {
 }
 
 /**
- * Remove TODOS os dados demo (usuários e partidas). Ordem importa:
- * as partidas precisam sair antes dos perfis (FK `on delete restrict`).
+ * Remove os dados demo (contas `demo-*` e eventuais partidas `demo-*`).
+ * Ordem importa: partidas antes dos perfis (FK `on delete restrict`).
+ * A classificação publicada NÃO é tocada: as contas demo têm 0 jogos e
+ * por isso não aparecem no snapshot.
  */
 export async function cleanupDemo(admin, { log = () => {} } = {}) {
   const matches = await admin
@@ -151,18 +162,8 @@ export async function cleanupDemo(admin, { log = () => {} } = {}) {
     deletedUsers += 1;
   }
 
-  // Snapshot publicado deixa de refletir a massa: remove para os rankings
-  // públicos voltarem ao estado "sem dados" (o app recalcula quando houver
-  // resultado oficial).
-  const snap = await admin
-    .from("ranking_snapshots")
-    .delete({ count: "exact" })
-    .not("level_id", "is", null);
-  if (snap.error) throw new Error(snap.error.message);
-
   log(
-    `Removidos: ${matches.count ?? 0} partida(s), ${deletedUsers} usuário(s) demo, ` +
-      `${snap.count ?? 0} snapshot(s).`,
+    `Removidos: ${matches.count ?? 0} partida(s) demo, ${deletedUsers} usuário(s) demo.`,
   );
-  return { matches: matches.count ?? 0, users: deletedUsers, snapshots: snap.count ?? 0 };
+  return { matches: matches.count ?? 0, users: deletedUsers };
 }

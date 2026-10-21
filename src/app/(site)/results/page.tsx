@@ -10,6 +10,7 @@ import {
   type ResultViewRow,
 } from "@/lib/results/view";
 import { formatDate, scoreText } from "@/lib/format";
+import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
 
 export const metadata: Metadata = {
   title: "Resultados",
@@ -103,7 +104,7 @@ export default async function PublicResultsPage() {
             <thead>
               <tr>
                 <th>Data</th>
-                <th className="col-sm">Nível</th>
+                <th className="col-sm">Formato</th>
                 <th>Jogadores</th>
                 <th>Placar</th>
               </tr>
@@ -112,15 +113,7 @@ export default async function PublicResultsPage() {
               {data.rows.map((m) => (
                 <tr key={m.id}>
                   <td>{formatDate(m.playedOn)}</td>
-                  <td className="col-sm">
-                    {m.level ? (
-                      <Link href={`/results/${m.level.slug}`}>
-                        {m.level.name}
-                      </Link>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
+                  <td className="col-sm">{MATCH_FORMAT_LABELS[m.format]}</td>
                   <td>
                     <span className="small">
                       <strong
@@ -137,7 +130,11 @@ export default async function PublicResultsPage() {
                     </span>
                   </td>
                   <td>
-                    <strong>{scoreText(m.sets)}</strong>
+                    <strong>
+                      {m.format === "walkover"
+                        ? `W.O. (${m.winner === "p1" ? m.p1 : m.p2})`
+                        : scoreText(m.sets)}
+                    </strong>
                   </td>
                 </tr>
               ))}

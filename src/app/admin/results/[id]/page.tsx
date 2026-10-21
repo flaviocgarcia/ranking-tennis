@@ -77,6 +77,8 @@ export default async function AdminEditResultPage({
             player2Id: match.player2_id,
             playedOn: match.played_on,
             sets: (match.sets as [number, number][]).map(([a, b]) => `${a}-${b}`),
+            format: match.format,
+            walkoverWinner: match.walkover_winner,
             status: match.status === "pending" ? "pending" : "confirmed",
           }}
         />

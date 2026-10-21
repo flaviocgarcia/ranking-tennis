@@ -1,82 +1,66 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listPublicLevels } from "@/lib/queries/levels";
-import { getSnapshotsMeta } from "@/lib/queries/rankings";
 import { createSupabaseAnon } from "@/lib/supabase/anon";
-import { formatDateTime } from "@/lib/format";
+import { loadPublicRanking } from "@/lib/ranking/public";
+import { RankingPanel } from "@/components/RankingPanel";
 
 export const metadata: Metadata = {
-  title: "Classificações",
-  description: "Ranking publicado por nível.",
+  title: "Classificação",
+  description: "Classificação publicada do F CHALLENGER.",
 };
 
-interface LevelCard {
-  id: string;
-  code: string;
-  slug: string;
-  name: string;
-  computedAt: string | null;
-}
+export const revalidate = 3600;
 
-async function loadCards(): Promise<LevelCard[] | null> {
+async function loadData() {
   try {
     const anon = createSupabaseAnon();
     const levels = await listPublicLevels(anon);
-    const meta = await getSnapshotsMeta(
-      anon,
-      levels.map((l) => l.id),
-    );
-    return levels.map((l) => ({
-      id: l.id,
-      code: l.code,
-      slug: l.slug,
-      name: l.name,
-      computedAt: meta.get(l.id) ?? null,
-    }));
+    const level = levels[0];
+    if (!level) return { kind: "empty" as const };
+
+    const data = await loadPublicRanking(anon, level);
+    if (data.rows.length === 0) return { kind: "empty" as const, level };
+    return { kind: "ok" as const, data };
   } catch (e) {
-    console.error("[rankings] falha ao carregar níveis:", e);
-    return null;
+    console.error("[rankings] falha ao carregar:", e);
+    return { kind: "error" as const };
   }
 }
 
-/** Lista pública dos níveis — página estática (2 consultas na build/revalidação). */
+/** Índice público: com um torneio só, a página já mostra a classificação. */
 export default async function RankingsIndexPage() {
-  const cards = await loadCards();
+  const data = await loadData();
 
-  return (
-    <>
-      <h1 className="page-title">Classificações</h1>
-      <p className="page-sub">
-        Escolha um nível para ver a classificação publicada.
-      </p>
-
-      {cards === null ? (
+  if (data.kind === "error") {
+    return (
+      <>
+        <h1 className="page-title">Classificação</h1>
         <div className="card">
           <p className="muted">
-            Não foi possível carregar as classificações agora. Tente novamente
-            mais tarde.
+            Não foi possível carregar a classificação agora. Tente novamente em
+            instantes.
           </p>
         </div>
-      ) : cards.length === 0 ? (
+      </>
+    );
+  }
+
+  if (data.kind === "empty") {
+    return (
+      <>
+        <h1 className="page-title">Classificação</h1>
         <div className="card">
-          <p className="muted">Nenhum nível publicado até o momento.</p>
+          <p className="muted">
+            A classificação ainda não tem jogos na janela de 12 meses.
+          </p>
+          <p className="small">
+            <Link href="/rules">Ver o regulamento</Link>
+          </p>
         </div>
-      ) : (
-        <div className="grid mt">
-          {cards.map((c) => (
-            <Link key={c.id} href={`/rankings/${c.slug}`} className="link-card">
-              <div className="title">
-                {c.name} <span className="muted">({c.code})</span>
-              </div>
-              <div className="desc">
-                {c.computedAt
-                  ? `Atualizada em ${formatDateTime(c.computedAt)}`
-                  : "Aguardando primeira publicação"}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </>
-  );
+      </>
+    );
+  }
+
+  return <RankingPanel data={data.data} />;
 }

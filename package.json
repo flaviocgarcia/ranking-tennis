@@ -12,6 +12,8 @@
     "demo:seed": "node scripts/seed-demo.mjs",
     "demo:reset": "node scripts/reset-demo.mjs",
     "rankings:rebuild": "node scripts/rebuild-rankings.mjs",
+    "fch:export": "python3.10 scripts/export_fchallenger.py",
+    "fch:import": "node scripts/reset-and-import.mjs",
     "demo:video": "node scripts/demo-video/build.mjs",
     "demo:video:dry": "node scripts/demo-video/build.mjs --dry",
     "demo:video:cleanup": "node scripts/demo-video/build.mjs --cleanup"

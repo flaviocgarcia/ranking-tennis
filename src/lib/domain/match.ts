@@ -92,15 +92,19 @@ export function validateMatchScore(
     const [a, b] = raw;
 
     const deciding = p1 === setsToWin - 1 && p2 === setsToWin - 1;
+    // Set decisivo (empate 1-1 no melhor de 3): o regulamento do F
+    // CHALLENGER manda tiebreakão, mas jogos registrados com set comum
+    // também são aceitos (decisão: os dois formatos valem — a pontuação
+    // é a mesma, 200/100). Fora do decisivo, só set comum.
     const valid = deciding && superTiebreak.enabled
-      ? isSuperTiebreak(a, b, superTiebreak.points)
+      ? isSuperTiebreak(a, b, superTiebreak.points) || isNormalSet(a, b)
       : isNormalSet(a, b);
 
     if (!valid) {
       if (deciding && superTiebreak.enabled) {
         return {
           ok: false,
-          error: `Set ${i + 1} inválido: o set decisivo é tiebreakão (primeiro a ${superTiebreak.points}, vantagem de 2).`,
+          error: `Set ${i + 1} inválido: o set decisivo é tiebreakão (primeiro a ${superTiebreak.points}, vantagem de 2) ou um set comum (ex.: 6-4).`,
         };
       }
       return { ok: false, error: `Set ${i + 1} inválido (placar: ${a}x${b}).` };

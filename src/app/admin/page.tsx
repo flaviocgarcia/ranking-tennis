@@ -42,7 +42,7 @@ export default async function AdminHomePage() {
       <p className="page-sub">
         {scope
           ? "Você administra somente este nível: jogadores e resultados dele."
-          : "Controle de resultados, níveis e jogadores."}
+          : "Controle de resultados, convites e jogadores."}
       </p>
 
       <div className="card">
@@ -100,17 +100,18 @@ export default async function AdminHomePage() {
           <div className="desc">Confirmar, corrigir, rejeitar ou excluir partidas.</div>
         </Link>
         {!scope && (
-          <Link href="/admin/levels" className="link-card">
-            <div className="title">Níveis e regras</div>
+          <Link href="/admin/convites" className="link-card">
+            <div className="title">Convites e ativação</div>
             <div className="desc">
-              Formato (sets/tiebreakão), pontuação e desempate de cada nível.
+              Pré-cadastrados do torneio: gerar códigos de ativação para os
+              atletas criarem a própria conta.
             </div>
           </Link>
         )}
         <Link href="/admin/players" className="link-card">
           <div className="title">Jogadores</div>
           <div className="desc">
-            Cadastrar usuários, aprovar cadastros, definir níveis e redefinir
+            Cadastrar contas, aprovar cadastros, definir nível e redefinir
             senhas.
           </div>
         </Link>

@@ -2,13 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MatchRow, MatchStatus } from "@/types/db";
 
 export const MATCH_ADMIN_COLS =
-  "id, level_id, player1_id, player2_id, sets, status, reported_by, confirmed_by, confirmed_at, played_on, source, external_ref, created_at, updated_at";
+  "id, level_id, player1_id, player2_id, sets, format, walkover_winner, status, reported_by, confirmed_by, confirmed_at, played_on, source, external_ref, created_at, updated_at";
 
 /**
  * Campos mínimos para o cálculo de classificação
  * (nenhum campo além do usado pelo domínio).
  */
-export const MATCH_RANKING_COLS = "id, player1_id, player2_id, sets";
+export const MATCH_RANKING_COLS =
+  "id, player1_id, player2_id, sets, format, walkover_winner, played_on";
 
 /**
  * Colunas públicas (páginas estáticas de resultados).
@@ -16,7 +17,7 @@ export const MATCH_RANKING_COLS = "id, player1_id, player2_id, sets";
  * coluna impedem expor `reported_by`, `source`, `external_ref`, etc.
  */
 export const MATCH_PUBLIC_COLS =
-  "id, level_id, player1_id, player2_id, sets, played_on";
+  "id, level_id, player1_id, player2_id, sets, format, walkover_winner, played_on";
 
 export interface PublicMatchRow {
   id: string;
@@ -24,6 +25,8 @@ export interface PublicMatchRow {
   player1_id: string;
   player2_id: string;
   sets: MatchRow["sets"];
+  format: MatchRow["format"];
+  walkover_winner: MatchRow["walkover_winner"];
   played_on: string;
 }
 

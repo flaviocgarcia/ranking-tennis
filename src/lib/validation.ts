@@ -63,6 +63,11 @@ export function dateString(v: unknown, label: string): string {
   return s;
 }
 
+/** Código de ativação digitado: maiúsculas, só alfanumérico. */
+export function normalizeActivationCode(raw: unknown): string {
+  return String(raw ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 /** Slug simples usado nas URLs públicas (/rankings/a). */
 export function slugify(v: string): string {
   return v
