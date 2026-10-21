@@ -90,7 +90,10 @@ for (const sc of CENARIOS) {
   const total = diff(on, off, 1280, 800, 20);
   const topo = diff(on, off, 1280, 140, 0);
   const rodape = diff(on, off, 1280, 150, 650);
-  const vFala = meanVolume(mp4, tOn, 1.0);
+  // Mede a voz dentro da ÚLTIMA fala inteira (excluindo a cauda de ~0,5s de
+  // silêncio que o Piper grava após a palavra final e que entra no timeline).
+  const f0 = tl.start[tl.start.length - 1];
+  const vFala = meanVolume(mp4, f0 + 0.1, Math.max(0.4, lastEnd - f0 - 0.3));
   const vSil = meanVolume(mp4, tOff, 0.8);
   console.log(
     sc.id.padEnd(16),

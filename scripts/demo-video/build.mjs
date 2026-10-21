@@ -24,7 +24,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CENARIOS, BASE, CONTAS, CONTA_VIDEO, CTX } from "./narrativa.mjs";
+import { CENARIOS, ATOS, BASE, CONTAS, CONVITE, CTX } from "./narrativa.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
@@ -37,8 +37,17 @@ const FFMPEG = path.join(TOOLS, "ffmpeg", "bin", "ffmpeg");
 const FFPROBE = path.join(TOOLS, "ffmpeg", "bin", "ffprobe");
 const FONTDIR = "/usr/share/fonts/truetype/dejavu";
 const FINAL_DIR = path.join(ROOT, "demo-video");
-const FINAL_MP4 = path.join(FINAL_DIR, "ranking-tenis-demonstracao.mp4");
+const FINAL_MP4 = path.join(FINAL_DIR, "fchallenger-demonstracao.mp4");
 const FINAL_SRT = path.join(FINAL_DIR, "legendas.srt");
+/** Vídeos por persona (gerados do mesmo conjunto de cenas). */
+const ACT_MP4 = (ato) => path.join(FINAL_DIR, `fchallenger-${ato}.mp4`);
+const ACT_SRT = (ato) => path.join(FINAL_DIR, `legendas-${ato}.srt`);
+/** Backup do banco gravado antes de qualquer mutação da demo. */
+const BACKUP_FILE = path.join(OUT, "backup.json");
+/** Sessão (cookies) persistida entre cenas — cada cena usa um contexto novo. */
+const STATE_FILE = path.join(OUT, "storage-state.json");
+/** Cenas que abrem sessão própria (contexto sempre limpo antes do login). */
+const CENAS_LOGIN = new Set(["jog-login", "adm-login"]);
 
 const LENGTH_SCALE = "1.08"; // fala um pouco mais devagar, para apresentação
 const TAIL = 1.6; // silêncio final de cada cena
@@ -169,6 +178,9 @@ function assTime(sec) {
 
 const cleanAss = (t) => t.replace(/[\\{}]/g, "").replace(/\s+/g, " ").trim();
 
+/** Fala pode ser texto estático ou função (narração com valores do CTX). */
+const falaTexto = (f) => (typeof f.texto === "function" ? f.texto() : f.texto);
+
 function writeAss(scene, start, end, durations, file) {
   const out = [
     "[Script Info]",
@@ -193,7 +205,7 @@ function writeAss(scene, start, end, durations, file) {
   // legendas das falas (rodapé)
   scene.falas.forEach((f, i) => {
     out.push(
-      `Dialogue: 0,${assTime(start[i])},${assTime(end[i] + 0.3)},Legenda,,0,0,0,,${cleanAss(f.texto)}`,
+      `Dialogue: 0,${assTime(start[i])},${assTime(end[i] + 0.3)},Legenda,,0,0,0,,${cleanAss(falaTexto(f))}`,
     );
   });
   fs.writeFileSync(file, out.join("\n") + "\n");
@@ -231,142 +243,377 @@ function dataBR(iso) {
   return y && m && d ? `${d}/${m}/${y}` : "";
 }
 
-async function setup() {
+async function setup(scenes) {
   const db = supabaseAdmin();
-  const { data: levels, error: levErr } = await db.from("levels").select("id,slug").eq("active", true);
+  const cenas = new Set(scenes.map((s) => s.id));
+
+  const { data: levels, error: levErr } = await db
+    .from("levels")
+    .select("id, slug")
+    .eq("active", true);
   if (levErr) throw new Error(levErr.message);
-  CTX.levelA = levels.find((l) => l.slug === "a")?.id ?? "";
-  CTX.levelB = levels.find((l) => l.slug === "b")?.id ?? "";
-  if (!CTX.levelA || !CTX.levelB) throw new Error("níveis A/B não encontrados");
+  const level =
+    (levels ?? []).find((l) => l.slug === "challenger") ?? (levels ?? [])[0];
+  if (!level) throw new Error("nível do torneio não encontrado");
+  CTX.levelId = level.id;
 
-  // Conta pendente usada no cenário de auto-cadastro/aprovação.
-  const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  let user = (list?.users ?? []).find((u) => u.email === CONTA_VIDEO.email);
-  if (!user) {
-    const r = await db.auth.admin.createUser({
-      email: CONTA_VIDEO.email,
-      password: CONTA_VIDEO.senha,
-      email_confirm: true,
-      user_metadata: { name: CONTA_VIDEO.nome, initials: "CV" },
-    });
-    if (r.error) throw new Error("criar conta demo: " + r.error.message);
-    user = r.data.user;
-    log("  conta pendente criada:", CONTA_VIDEO.email);
+  // Perfis do clube (nomes reais) e as duas contas demo.
+  const { data: profiles } = await db.from("profiles").select("*");
+  const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const demoPlayer = (profiles ?? []).find((p) => p.email === CONTAS.jogador.email);
+  const demoAdmin = (profiles ?? []).find((p) => p.email === CONTAS.admin.email);
+  if (!demoPlayer || !demoAdmin) {
+    throw new Error("contas demo não encontradas (rode npm run demo:seed)");
   }
-  const { data: dLevel } = await db.from("levels").select("id").eq("slug", "d").single();
-  const { data: perfilAntes } = await db
-    .from("profiles")
-    .select("pending_approval, level_id")
-    .eq("id", user.id)
+  CTX.jogadorId = demoPlayer.id;
+
+  // Ranking publicado (janela de 12 meses) — mesma leitura do app.
+  const { data: snapRow } = await db
+    .from("ranking_snapshots")
+    .select("data")
+    .eq("level_id", level.id)
     .maybeSingle();
-  const { error: profErr } = await db
-    .from("profiles")
-    .update({
-      name: CONTA_VIDEO.nome,
-      initials: "CV",
-      level_id: dLevel.id,
-      pending_approval: true,
-      active: true,
-      must_change_password: false,
-      role: "player",
-      admin_level_id: null,
-    })
-    .eq("id", user.id);
-  if (profErr) throw new Error(profErr.message);
-  // Aprovar a conta coloca o jogador no elenco do nível e entra no ranking
-  // publicado; voltar a "pendente" exige recalcular esse nível.
-  const contaMudou =
-    !perfilAntes ||
-    perfilAntes.pending_approval !== true ||
-    perfilAntes.level_id !== dLevel.id;
+  const linhas = rankingAtual(snapRow?.data, byId);
+  if (linhas.length < 4) {
+    throw new Error("ranking publicado pequeno demais para a demonstração");
+  }
+  const porId = new Map(linhas.map((r) => [r.id, r]));
+  CTX.topNome = linhas[0].nome;
+  CTX.jogosNoRanking = linhas.length;
+  CTX.dataHoje = dataBR(hojeISO());
+  log(`  ranking: ${linhas.length} atletas · líder ${linhas[0].nome} (${linhas[0].pts} pts)`);
 
-  // Normaliza as partidas demo: as com sufixo "-pending" devem ficar pendentes e
-  // as demais confirmadas (o vídeo confirma e reabre duas delas; uma execução
-  // interrompida pode ter deixado o estado trocado).
-  const { data: demoMatches } = await db
+  // Quem aparece nas 60 partidas mais recentes de /results (a página pública
+  // traz apenas as mais novas — o adversário precisa estar lá).
+  const { data: recentes } = await db
     .from("matches")
-    .select("id, external_ref, status, played_on")
-    .like("external_ref", "demo-%");
-  const normalizar = [];
-  for (const m of demoMatches ?? []) {
-    if (m.external_ref === "demo-a-pending") CTX.dataA = dataBR(m.played_on);
-    if (m.external_ref === "demo-b-pending") CTX.dataB = dataBR(m.played_on);
-    if (m.status !== "pending" && m.status !== "confirmed") continue;
-    const alvo = m.external_ref.endsWith("-pending") ? "pending" : "confirmed";
-    if (m.status !== alvo) normalizar.push({ id: m.id, status: alvo, external_ref: m.external_ref });
-  }
-  if (!CTX.dataA || !CTX.dataB) {
-    throw new Error("pendências demo (demo-a-pending/demo-b-pending) não encontradas");
-  }
-  let recalculou = false;
-  if (normalizar.length > 0) {
-    for (const n of normalizar) {
-      const { error } = await db
-        .from("matches")
-        .update({
-          status: n.status,
-          confirmed_at: n.status === "confirmed" ? new Date().toISOString() : null,
-          confirmed_by: null,
-        })
-        .eq("id", n.id);
-      if (error) throw new Error(error.message);
-    }
-    log("  partidas demo normalizadas:", normalizar.map((n) => n.external_ref).join(", "));
-    recalculou = true;
-  }
-  if (contaMudou) {
-    log("  conta de demonstração reiniciada como pendente (nível D)");
-    recalculou = true;
-  }
-  if (recalculou) {
-    run("node", [path.join(ROOT, "scripts", "rebuild-rankings.mjs")], { cwd: ROOT });
+    .select("player1_id, player2_id")
+    .eq("status", "confirmed")
+    .order("played_on", { ascending: false })
+    .limit(60);
+  const noResults = new Set();
+  for (const m of recentes ?? []) {
+    noResults.add(m.player1_id);
+    noResults.add(m.player2_id);
   }
 
-  // Sobras do cenário do jogador (resultado criado e não retirado).
-  await removePlayerLeftovers(db, "quiet");
+  // Restrições do dia: quem já joga hoje e contagem por semestre (limite de 2
+  // partidas contra o MESMO adversário) — usadas para escolher o par do
+  // lançamento do admin e o adversário da demonstração.
+  const jogouHoje = new Set();
+  const { data: hojeRows } = await db
+    .from("matches")
+    .select("player1_id, player2_id")
+    .eq("played_on", hojeISO());
+  for (const m of hojeRows ?? []) {
+    jogouHoje.add(m.player1_id);
+    jogouHoje.add(m.player2_id);
+  }
+  const { data: semestre } = await db
+    .from("matches")
+    .select("player1_id, player2_id")
+    .gte("played_on", semestreInicio())
+    .neq("status", "rejected");
+  const contagem = new Map();
+  for (const m of semestre ?? []) {
+    const k = parOrdenado(m.player1_id, m.player2_id);
+    contagem.set(k, (contagem.get(k) ?? 0) + 1);
+  }
+
+  const reais = linhas.filter(
+    (r) => r.id !== demoPlayer.id && r.id !== demoAdmin.id,
+  );
+
+  // Par do lançamento do admin: dois atletas reais livres hoje e sem
+  // contagem no semestre (o vídeo salva a partida como pendente).
+  let par = null;
+  busca: for (let i = 0; i < reais.length; i++) {
+    for (let j = i + 1; j < reais.length; j++) {
+      const [a, b] = [reais[i], reais[j]];
+      if (jogouHoje.has(a.id) || jogouHoje.has(b.id)) continue;
+      if ((contagem.get(parOrdenado(a.id, b.id)) ?? 0) > 0) continue;
+      par = [a, b];
+      break busca;
+    }
+  }
+  if (!par) throw new Error("sem par de atletas livres para o lançamento do admin");
+  CTX.lancarP1Id = par[0].id;
+  CTX.lancarP2Id = par[1].id;
+  CTX.lancarP1 = par[0].nome;
+  CTX.lancarP2 = par[1].nome;
+
+  // Adversário da demonstração: quem sobe mais na tabela somando 300 pontos
+  // (vitória por 2 a 0 sobre o Jogador Demo), entre os que aparecem no
+  // /results público.
+  let melhor = null;
+  for (const c of reais) {
+    if (c.id === par[0].id || c.id === par[1].id) continue;
+    if (!noResults.has(c.id) || jogouHoje.has(c.id)) continue;
+    const depois = aplicarPosicoes(
+      linhas.map((r) => (r.id === c.id ? { ...r, pts: r.pts + 300 } : r)),
+    );
+    const meuDepois = depois.find((r) => r.id === c.id);
+    const acima = depois[depois.indexOf(meuDepois) - 1];
+    const passou = acima && porId.get(acima.id).pos < c.pos ? acima.nome : "";
+    const ganho = c.pos - meuDepois.pos;
+    const score = ganho * 10 + (passou ? 5 : 0);
+    if (!melhor || score > melhor.score) {
+      melhor = { candidato: c, meuDepois, passou, score };
+    }
+  }
+  if (!melhor) throw new Error("sem adversário para a demonstração");
+  CTX.adversarioId = melhor.candidato.id;
+  CTX.adversario = melhor.candidato.nome;
+  CTX.advPtsAntes = melhor.candidato.pts;
+  CTX.advPosAntes = melhor.candidato.pos;
+  CTX.advPtsDepois = melhor.meuDepois.pts;
+  CTX.advPosDepois = melhor.meuDepois.pos;
+  CTX.ultrapassado = melhor.passou ?? "";
+  log(
+    `  adversário: ${CTX.adversario} (${CTX.advPtsAntes} pts · pos ${CTX.advPosAntes}` +
+      ` → ${CTX.advPtsDepois} pts · pos ${CTX.advPosDepois}` +
+      `${CTX.ultrapassado ? ` · ultrapassa ${CTX.ultrapassado}` : ""})`,
+  );
+
+  // Backup completo do que a demo pode tocar: o restore devolve o banco ao
+  // estado exato pré-gravação — inclusive se a execução cair no meio.
+  const backup = {
+    ts: new Date().toISOString(),
+    ctx: {
+      demoPlayerId: demoPlayer.id,
+      lancarP1Id: CTX.lancarP1Id,
+      lancarP2Id: CTX.lancarP2Id,
+      hoje: hojeISO(),
+      levelId: level.id,
+      conviteNome: CONVITE.nome,
+    },
+    matches: (await db.from("matches").select("*")).data ?? [],
+    invites: (await db.from("invites").select("*")).data ?? [],
+    profiles: (await db.from("profiles").select("*")).data ?? [],
+    snapshots: (await db.from("ranking_snapshots").select("*")).data ?? [],
+  };
+  fs.writeFileSync(BACKUP_FILE, JSON.stringify(backup));
+  log(
+    `  backup gravado: ${backup.matches.length} partidas · ` +
+      `${backup.invites.length} convites · ${backup.profiles.length} perfis`,
+  );
+
+  // Sobras de execuções anteriores: tudo que a demo cria é removível por
+  // marcador (external_ref demo-video-*, convite pelo nome, pendências do
+  // jogador demo — que nunca teve partidas reais).
+  await db.from("matches").delete().like("external_ref", "demo-video-%");
+  await db
+    .from("matches")
+    .delete()
+    .eq("reported_by", demoPlayer.id)
+    .eq("status", "pending");
+  await db.from("invites").delete().eq("name", CONVITE.nome);
+
+  // Convite de demonstração usado na tela /ativar do ato público.
+  const { error: convErr } = await db.from("invites").insert({
+    name: CONVITE.nome,
+    activation_code: CONVITE.codigo,
+  });
+  if (convErr) throw new Error("criar convite demo: " + convErr.message);
+
+  // Sem a cena do jogador no run, a pendência do impacto é criada direto (o
+  // mesmo resultado que a UI gravaria); com a cena, a UI cria durante a
+  // gravação e o setup apenas limpou sobras acima.
+  if (!cenas.has("jog-novo")) {
+    const { error } = await db.from("matches").insert({
+      level_id: level.id,
+      player1_id: demoPlayer.id,
+      player2_id: CTX.adversarioId,
+      sets: [[3, 6], [4, 6]],
+      status: "pending",
+      reported_by: demoPlayer.id,
+      played_on: hojeISO(),
+      source: "web",
+      format: "normal",
+      external_ref: "demo-video-impacto",
+    });
+    if (error) throw new Error("criar pendência demo: " + error.message);
+    log("  pendência demo criada (cena do jogador fora do run):", CTX.adversario);
+  }
+
   return db;
 }
 
-async function removePlayerLeftovers(db, mode = "quiet") {
-  const { data: profs } = await db
-    .from("profiles")
-    .select("id")
-    .in("name", ["Rafael Almeida", "Bruno Carvalho"]);
-  const ids = new Set((profs ?? []).map((p) => p.id));
-  if (ids.size !== 2) return 0;
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: found } = await db
-    .from("matches")
-    .select("id, status, player1_id, player2_id")
-    .eq("played_on", today)
-    .eq("status", "pending")
-    .eq("source", "site");
-  const leftovers = (found ?? []).filter(
-    (m) => ids.has(m.player1_id) && ids.has(m.player2_id),
-  );
-  if (leftovers.length > 0) {
-    if (mode !== "quiet") log("  removendo sobras do cenário do jogador:", leftovers.length);
-    await db.from("matches").in("id", leftovers.map((m) => m.id)).delete();
+/**
+ * Restaura o banco ao backup gravado no setup: remove o que a demo criou,
+ * devolve o que mudou (status, etiquetas, códigos) e repõe o snapshot
+ * publicado exatamente como estava.
+ */
+async function restore(db) {
+  if (!fs.existsSync(BACKUP_FILE)) {
+    log("  sem backup.json — removendo apenas os marcadores demo...");
+    await db.from("matches").delete().like("external_ref", "demo-video-%");
+    await db.from("invites").delete().eq("name", CONVITE.nome);
+    return;
   }
-  return leftovers.length;
+  const bk = JSON.parse(fs.readFileSync(BACKUP_FILE, "utf8"));
+  const ctx = bk.ctx;
+
+  // 1) partidas: remove as criadas pela demo e devolve as alteradas
+  const bkMatches = new Map(bk.matches.map((m) => [m.id, m]));
+  const { data: atuais } = await db.from("matches").select("*");
+  const remover = [];
+  for (const m of atuais ?? []) {
+    const original = bkMatches.get(m.id);
+    if (!original) {
+      const marcada = (m.external_ref ?? "").startsWith("demo-video-");
+      const doDemo =
+        m.player1_id === ctx.demoPlayerId || m.player2_id === ctx.demoPlayerId;
+      const doAdmin =
+        m.played_on === ctx.hoje &&
+        [m.player1_id, m.player2_id].includes(ctx.lancarP1Id) &&
+        [m.player1_id, m.player2_id].includes(ctx.lancarP2Id);
+      if (marcada || doDemo || doAdmin) remover.push(m.id);
+      continue;
+    }
+    const diff = diffCampos(m, original);
+    if (Object.keys(diff).length > 0) {
+      const { error } = await db.from("matches").update(diff).eq("id", m.id);
+      if (error) throw new Error(error.message);
+      log("  partida restaurada:", m.id);
+    }
+  }
+  if (remover.length > 0) {
+    const { error } = await db.from("matches").delete().in("id", remover);
+    if (error) throw new Error(error.message);
+    log(`  ${remover.length} partida(s) da demo removida(s).`);
+  }
+
+  // 2) convites: remove os criados e devolve os alterados (regeneração)
+  const bkInv = new Map(bk.invites.map((i) => [i.id, i]));
+  const { data: convAtuais } = await db.from("invites").select("*");
+  const convRemover = [];
+  for (const i of convAtuais ?? []) {
+    const original = bkInv.get(i.id);
+    if (!original) {
+      convRemover.push(i.id);
+      continue;
+    }
+    const diff = diffCampos(i, original);
+    if (Object.keys(diff).length > 0) {
+      const { error } = await db.from("invites").update(diff).eq("id", i.id);
+      if (error) throw new Error(error.message);
+      log("  convite restaurado:", original.name);
+    }
+  }
+  if (convRemover.length > 0) {
+    const { error } = await db.from("invites").delete().in("id", convRemover);
+    if (error) throw new Error(error.message);
+    log(`  ${convRemover.length} convite(s) da demo removido(s).`);
+  }
+
+  // 3) perfis: etiqueta A–D, nome, código do Telegram etc.
+  const bkProf = new Map(bk.profiles.map((p) => [p.id, p]));
+  const { data: profAtuais } = await db.from("profiles").select("*");
+  for (const p of profAtuais ?? []) {
+    const original = bkProf.get(p.id);
+    if (!original) continue;
+    const diff = diffCampos(p, original);
+    if (Object.keys(diff).length > 0) {
+      const { error } = await db.from("profiles").update(diff).eq("id", p.id);
+      if (error) throw new Error(error.message);
+      log("  perfil restaurado:", original.name, `(${Object.keys(diff).join(", ")})`);
+    }
+  }
+
+  // 4) snapshot publicado — reposto exatamente como estava pré-demo
+  for (const s of bk.snapshots ?? []) {
+    const { error } = await db
+      .from("ranking_snapshots")
+      .upsert(
+        { level_id: s.level_id, data: s.data, computed_at: s.computed_at },
+        { onConflict: "level_id" },
+      );
+    if (error) throw new Error(error.message);
+  }
+  log("  snapshot da classificação reposto ao estado pré-demo.");
+
+  // 5) conferência final: nenhuma sobra demo no banco
+  const { data: restantes } = await db
+    .from("matches")
+    .select("id, status")
+    .or(
+      `external_ref.like.demo-video-%,reported_by.eq.${ctx.demoPlayerId}`,
+    );
+  if ((restantes ?? []).length > 0) {
+    log(`  ⚠ ${restantes.length} partida(s) demo ainda no banco — verifique.`);
+  } else {
+    log("  conferência: nenhuma partida demo restante.");
+  }
 }
 
-async function cleanup(db) {
-  await removePlayerLeftovers(db, "log");
-  const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const user = (list?.users ?? []).find((u) => u.email === CONTA_VIDEO.email);
-  if (user) {
-    const { error } = await db.auth.admin.deleteUser(user.id);
-    if (error) throw new Error(error.message);
-    log("  conta demo removida:", CONTA_VIDEO.email);
-  } else {
-    log("  conta demo não encontrada (já removida).");
+/** Diferença de colunas entre a linha atual e a do backup (ignora updated_at). */
+function diffCampos(atual, original) {
+  const diff = {};
+  for (const c of Object.keys(original)) {
+    if (c === "updated_at" || c === "id") continue;
+    if (JSON.stringify(atual[c] ?? null) !== JSON.stringify(original[c] ?? null)) {
+      diff[c] = original[c];
+    }
   }
-  // Se a conta chegou a ser aprovada, ela entrou no ranking publicado do nível D;
-  // removê-la exige recalcular para o publicado voltar a bater com o cálculo.
-  run("node", [path.join(ROOT, "scripts", "rebuild-rankings.mjs")], { cwd: ROOT });
-  log("Rankings recalculados após a limpeza.");
+  return diff;
 }
+
+/** Ranking em ordem de pontos (empate = mesma posição, ex.: 1, 2, 2, 4). */
+function aplicarPosicoes(rows) {
+  const arr = rows
+    .slice()
+    .sort((a, b) => b.pts - a.pts || a.nome.localeCompare(b.nome, "pt-BR"));
+  let lastPts = null;
+  let lastPos = 0;
+  arr.forEach((r, i) => {
+    if (r.pts === lastPts) r.pos = lastPos;
+    else {
+      r.pos = i + 1;
+      lastPts = r.pts;
+      lastPos = r.pos;
+    }
+  });
+  return arr;
+}
+
+/**
+ * Ranking publicado aplicando a janela de 12 meses (mesma leitura do app).
+ * `snapData` é o jsonb do snapshot; `byId` mapeia profiles por id.
+ */
+function rankingAtual(snapData, byId) {
+  const inicio = janelaInicio();
+  const base = [];
+  for (const p of snapData?.players ?? []) {
+    const prof = byId.get(p.id);
+    if (!prof || !prof.active || prof.pending_approval) continue;
+    const g = (p.g ?? []).filter(([d]) => d >= inicio);
+    if (g.length === 0) continue;
+    base.push({
+      id: p.id,
+      nome: prof.name,
+      pts: g.reduce((a, [, v]) => a + v, 0),
+      jogos: g.length,
+    });
+  }
+  return aplicarPosicoes(base);
+}
+
+const hojeISO = () => new Date().toISOString().slice(0, 10);
+
+/** Início da janela de 12 meses e do semestre corrente (datas ISO). */
+function janelaInicio() {
+  const h = hojeISO();
+  return `${Number(h.slice(0, 4)) - 1}${h.slice(4)}`;
+}
+function semestreInicio() {
+  const h = hojeISO();
+  return Number(h.slice(5, 7)) >= 7
+    ? `${h.slice(0, 4)}-07-01`
+    : `${h.slice(0, 4)}-01-01`;
+}
+
+const parOrdenado = (a, b) => [a, b].sort().join("|");
 
 // ───────────────────────────────────────────────── Playwright
 
@@ -509,15 +756,15 @@ async function warmup() {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: VIEW, locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
   const page = await ctx.newPage();
-  const routes = ["/", "/rules", "/rankings", "/rankings/a", "/results", "/register", "/login"];
+  const routes = ["/", "/rules", "/rankings", "/results", "/atletas", "/agenda", "/ativar", "/login"];
   for (const r of routes) {
     await page.goto(BASE + r, { waitUntil: "domcontentloaded", timeout: 90000 }).catch(() => {});
   }
   // aquece rotas autenticadas (evita tela de compilação durante a gravação)
   const h = makeHelpers(page, { card: null });
-  for (const conta of [CONTAS.jogador, CONTAS.adminB, CONTAS.admin]) {
+  for (const conta of [CONTAS.jogador, CONTAS.admin]) {
     await h.login(conta.email, conta.senha).catch((e) => log("  warm login:", e.message.split("\n")[0]));
-    for (const r of ["/app", "/app/results", "/app/results/new", "/profile", "/admin", "/admin/results?status=pending", "/admin/players", "/admin/players/new", "/admin/levels", `/admin/levels/${CTX.levelA}`, "/admin/verify", "/admin/players?pending=1", "/admin/results?status=confirmed"]) {
+    for (const r of ["/app", "/app/results", "/app/results/new", "/app/agenda", "/profile", "/admin", "/admin/results", "/admin/results?status=pending", "/admin/results?status=confirmed", "/admin/results/new", "/admin/players", "/admin/players/new", "/admin/convites", "/admin/verify"]) {
       await page.goto(BASE + r, { waitUntil: "domcontentloaded", timeout: 90000 }).catch(() => {});
     }
     await ctx.clearCookies();
@@ -534,9 +781,18 @@ async function recordScene(browser, scene, durations) {
     deviceScaleFactor: 1,
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
+    // Cenas de login começam limpas; as demais herdam a sessão da cena
+    // anterior (senão o contexto novo derruba a autenticação no meio do ato).
+    ...(CENAS_LOGIN.has(scene.id) || !fs.existsSync(STATE_FILE)
+      ? {}
+      : { storageState: STATE_FILE }),
     ...(DRY ? {} : { recordVideo: { dir: vdir, size: VIEW } }),
   });
   const page = await ctx.newPage();
+  page.on("dialog", (d) => {
+    log(`    diálogo aceito: ${d.message().slice(0, 60)}`);
+    d.accept().catch(() => {});
+  });
   await ctx.addInitScript(pulso);
   const h = makeHelpers(page, scene);
   const t0 = Date.now();
@@ -566,6 +822,8 @@ async function recordScene(browser, scene, durations) {
   }
 
   const videoPathPromise = page.video()?.path() ?? null;
+  // Persiste a sessão para as próximas cenas (mesmo que a cena falhe).
+  await ctx.storageState({ path: STATE_FILE }).catch(() => {});
   await ctx.close();
   const video = videoPathPromise ? await videoPathPromise : null;
   return { video, start, end };
@@ -616,16 +874,15 @@ function mixScene(scene, timeline, lineFiles, durations) {
   return mp4;
 }
 
-function concatFinal(mp4s, timelines) {
-  fs.mkdirSync(FINAL_DIR, { recursive: true });
-  const list = path.join(OUT, "concat-list.txt");
+/** Concatena cenas mixadas num MP4 (cópia direta, com fallback re-encodando). */
+function concatVideos(mp4s, outFile) {
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  const list = path.join(OUT, `concat-${path.basename(outFile)}.txt`);
   fs.writeFileSync(list, mp4s.map((m) => `file '${m}'`).join("\n") + "\n");
-
-  const copy = ["-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", FINAL_MP4];
   try {
-    run(FFMPEG, copy);
+    run(FFMPEG, ["-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", outFile]);
     const sum = mp4s.reduce((acc, m) => acc + probeDuration(m), 0);
-    const got = probeDuration(FINAL_MP4);
+    const got = probeDuration(outFile);
     if (Math.abs(sum - got) > 1.5) {
       log(`  concat com -c copy ficou ${got.toFixed(1)}s (esperado ${sum.toFixed(1)}s); re-encodando...`);
       throw new Error("durante divergente");
@@ -635,25 +892,26 @@ function concatFinal(mp4s, timelines) {
       "-y", "-f", "concat", "-safe", "0", "-i", list,
       "-c:v", "libx264", "-preset", "fast", "-crf", "22",
       "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-      FINAL_MP4,
+      outFile,
     ]);
   }
+  return probeDuration(outFile);
+}
 
-  // legenda lado a lado (mesmas falas, com offset acumulado)
+/** Legenda lado a lado de um trecho (offsets acumulados das cenas do trecho). */
+function srtDoTrecho(cenas, timelines, outFile) {
   const cues = [];
   let offset = 0;
-  for (const m of mp4s) {
-    const scene = CENARIOS.find((s) => path.join(OUT, "mix", `${s.id}.mp4`) === m);
-    const tl = scene && timelines[scene.id];
-    if (scene && tl) {
+  for (const scene of cenas) {
+    const tl = timelines[scene.id];
+    if (tl) {
       scene.falas.forEach((f, i) => {
-        cues.push({ start: offset + tl.start[i], end: offset + tl.end[i] + 0.3, text: f.texto });
+        cues.push({ start: offset + tl.start[i], end: offset + tl.end[i] + 0.3, text: falaTexto(f) });
       });
     }
-    offset += probeDuration(m);
+    offset += probeDuration(path.join(OUT, "mix", `${scene.id}.mp4`));
   }
-  writeSrt(cues, FINAL_SRT);
-  return probeDuration(FINAL_MP4);
+  writeSrt(cues, outFile);
 }
 
 // ───────────────────────────────────────────────── main
@@ -663,22 +921,27 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
 
   if (CLEANUP_ONLY) {
-    log("▸ removendo dados da demonstração...");
-    await cleanup(supabaseAdmin());
+    log("▸ restaurando o banco ao estado pré-demo (backup)...");
+    await restore(supabaseAdmin());
     return;
   }
-
-  await ensureServer();
-  const db = await setup();
-  void db;
 
   const scenes = ONLY ? CENARIOS.filter((c) => c.id === ONLY) : CENARIOS;
   if (ONLY && scenes.length === 0) throw new Error(`cena desconhecida: ${ONLY}`);
 
+  await ensureServer();
+  const db = await setup(scenes);
+
+  // Run completo começa sem sessão (público anônimo na frente); em --only a
+  // sessão do run anterior é reaproveitada — cenas de login refazem a própria.
+  if (!ONLY && fs.existsSync(STATE_FILE)) fs.unlinkSync(STATE_FILE);
+
+  let falhou = null;
+  try {
   log("▸ etapa 1/5: narração (Piper, pt-BR)...");
   const audioByScene = new Map();
   for (const sc of scenes) {
-    const lines = sc.falas.map((f) => f.texto);
+    const lines = sc.falas.map(falaTexto);
     const files = [];
     const durations = [];
     if (!DRY) {
@@ -741,17 +1004,41 @@ async function main() {
     throw new Error(`esperava ${scenes.length} cenas mixadas, tenho ${mp4s.length}`);
   }
 
-  log("▸ etapa 5/5: concatenação final...");
-  const dur = concatFinal(mp4s, timelines);
+  log("▸ etapa 5/5: concatenação final (completo + um vídeo por ato)...");
+  const dur = concatVideos(mp4s, FINAL_MP4);
+  srtDoTrecho(scenes, timelines, FINAL_SRT);
   log("");
-  log("✅ vídeo final:", FINAL_MP4);
+  log("✅ vídeo completo:", FINAL_MP4);
   log("   duração:", `${Math.floor(dur / 60)}min ${Math.round(dur % 60)}s`);
   log("   tamanho:", (fs.statSync(FINAL_MP4).size / (1024 * 1024)).toFixed(1) + " MB");
-  log("   legendas (lado a lado):", FINAL_SRT);
-  log("");
-  log("Observações:");
-  log(" • a demo CONFIRMA e REABRE pendências de demonstração (A e B) e aprova a conta demo;");
-  log('   para remover a conta demo e sobras: node scripts/demo-video/build.mjs --cleanup');
+  log("   legendas:", FINAL_SRT);
+  for (const ato of ATOS) {
+    const cenas = scenes.filter((s) => s.ato === ato);
+    if (cenas.length === 0) continue;
+    const arqs = cenas.map((s) => path.join(OUT, "mix", `${s.id}.mp4`));
+    const d = concatVideos(arqs, ACT_MP4(ato));
+    srtDoTrecho(cenas, timelines, ACT_SRT(ato));
+    log(
+      ` ✅ ${ato}: ${path.basename(ACT_MP4(ato))} · ${Math.floor(d / 60)}min${Math.round(d % 60)}s` +
+        ` · ${path.basename(ACT_SRT(ato))}`,
+    );
+  }
+  } catch (e) {
+    falhou = e;
+  } finally {
+    // Restaura SEMPRE (inclusive em dry-run, que também executa ações reais):
+    // o banco nunca fica sujo entre tentativas, e o próprio restore é testado.
+    log("");
+    log("▸ restaurando o banco ao estado pré-demo...");
+    try {
+      await restore(db);
+      log("✅ restauração concluída — banco idêntico ao pré-demo.");
+    } catch (e) {
+      log("❌ falha na restauração:", e.message);
+      log("   rode: node scripts/demo-video/build.mjs --cleanup");
+    }
+  }
+  if (falhou) throw falhou;
 }
 
 main().catch((e) => {

@@ -11,3 +11,4 @@ scripts/demo-video/cache/
 .DS_Store
 .vercel
 .env*
+/demo-video/
