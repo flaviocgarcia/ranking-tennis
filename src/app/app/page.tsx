@@ -233,14 +233,28 @@ export default async function DashboardPage() {
                       <td>
                         <span className="player-cell">
                           <Avatar initials={(opponent?.name ?? "?").slice(0, 2).toUpperCase()} />
-                          {opponent?.name ?? "?"}
+                          <span
+                            className={
+                              won === null
+                                ? undefined
+                                : won
+                                  ? "res-loss"
+                                  : "res-win"
+                            }
+                          >
+                            {opponent?.name ?? "?"}
+                          </span>
                         </span>
                       </td>
                       <td>
                         {m.format === "walkover"
                           ? "W.O."
                           : scoreText(m.sets)}{" "}
-                        <span className="muted small">
+                        <span
+                          className={`small ${
+                            won ? "res-win" : verdict ? "res-loss" : "muted"
+                          }`}
+                        >
                           ({won ? "V" : verdict ? "D" : "—"})
                         </span>
                       </td>

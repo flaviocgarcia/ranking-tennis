@@ -22,14 +22,20 @@ export default async function AppLayout({
     <>
       <header className="site-header">
         <div className="container inner">
-          <Link href="/app" className="brand">
-            <img src="/logo-challenge.png" width={30} height={30} alt="" className="brand-logo" />
-            {clubName()}
-          </Link>
+          <div className="brand-group">
+            <Link href="/app" className="brand">
+              <img src="/logo-challenge.png" width={30} height={30} alt="" className="brand-logo" />
+              {clubName()}
+            </Link>
+            <Link href="/" className="btn btn-sm btn-secondary">
+              Área geral
+            </Link>
+          </div>
           <nav className="nav">
             <Link href="/app">Início</Link>
             <Link href="/app/results">Resultados</Link>
             <Link href="/app/agenda">Agenda</Link>
+            <Link href="/atletas">Atletas</Link>
             {!isPending && <Link href="/app/results/new">Novo resultado</Link>}
             <Link href="/rankings" className="subtle">
               Classificação

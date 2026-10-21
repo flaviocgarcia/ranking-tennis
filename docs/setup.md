@@ -41,6 +41,10 @@ reativação após pausa. Custos e limites: `docs/free-tier.md`.
       **código de ativação** — tabela privada, só `service_role`).
    7. `supabase/migrations/0007_invites_activated_at.sql` — separa
       "conta pré-criada" de "ativação concluída" (`invites.activated_at`).
+   8. `supabase/migrations/0008_ref_level.sql` — `profiles.ref_level`
+      (nível A–D do atleta, etiqueta da planilha — só o admin edita),
+      backfill a partir dos convites e política pública que esconde
+      cadastros pendentes de aprovação.
 4. Confirme em **Table Editor** que as 6 tabelas existem (`levels`,
    `profiles`, `matches`, `ranking_snapshots`, `availability`, `invites`) e
    que **Authentication → Providers → Email** está ativo.

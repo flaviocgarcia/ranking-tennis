@@ -3,7 +3,7 @@ import type { ProfileRow, Role } from "@/types/db";
 
 export const PROFILE_MIN_COLS = "id, name, initials";
 export const PROFILE_ADMIN_COLS =
-  "id, email, name, initials, role, level_id, admin_level_id, pending_approval, active, must_change_password, telegram_id, telegram_link_code, created_at, updated_at";
+  "id, email, name, initials, role, level_id, ref_level, admin_level_id, pending_approval, active, must_change_password, telegram_id, telegram_link_code, created_at, updated_at";
 
 const MAX_PLAYERS_PER_LEVEL = 2000;
 
@@ -46,6 +46,29 @@ export async function listActivePlayers(
   return (data ?? []) as Pick<
     ProfileRow,
     "id" | "name" | "initials" | "level_id"
+  >[];
+}
+
+/**
+ * Relação pública de atletas participantes (/atletas).
+ * Sem filtro de linha além da política `profiles_public_names` (que já
+ * esconde inativos e pendentes de aprovação): as contas de teste E2E
+ * têm "Demo" no nome — e nenhum atleta real tem —, então ficam de fora
+ * por ilike enquanto a agenda pública continua exibindo-as no E2E.
+ */
+export async function listPublicAthletes(
+  supabase: SupabaseClient,
+): Promise<Pick<ProfileRow, "id" | "name" | "initials" | "ref_level">[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name, initials, ref_level")
+    .not("name", "ilike", "%demo%")
+    .order("name", { ascending: true })
+    .limit(MAX_PLAYERS_PER_LEVEL);
+  if (error) throw new Error(`Falha ao listar atletas: ${error.message}`);
+  return (data ?? []) as Pick<
+    ProfileRow,
+    "id" | "name" | "initials" | "ref_level"
   >[];
 }
 

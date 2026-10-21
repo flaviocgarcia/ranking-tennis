@@ -124,6 +124,9 @@ export default async function AdminPlayersPage({
                     <span className="player-cell">
                       <Avatar initials={p.initials} />
                       {p.name}
+                      {p.ref_level && (
+                        <span className="badge badge-level">{p.ref_level}</span>
+                      )}
                     </span>
                   </td>
                   <td className="col-sm muted small">{p.email}</td>

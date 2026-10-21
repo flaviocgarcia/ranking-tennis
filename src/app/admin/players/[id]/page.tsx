@@ -73,6 +73,7 @@ export default async function EditPlayerPage({
             id: player.id,
             name: player.name,
             level_id: player.level_id,
+            ref_level: player.ref_level,
             active: player.active,
             role: player.role,
             admin_level_id: player.admin_level_id,

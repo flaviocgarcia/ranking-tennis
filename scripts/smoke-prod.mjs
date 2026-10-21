@@ -23,7 +23,7 @@ const falha = (t) => {
   erros.push(t);
 };
 
-const PUBLICAS = ["/", "/rules", "/rankings", "/results", "/agenda", "/login", "/ativar", "/rankings/challenger", "/results/challenger"];
+const PUBLICAS = ["/", "/rules", "/rankings", "/results", "/atletas", "/agenda", "/login", "/ativar", "/rankings/challenger", "/results/challenger"];
 const PRIVADAS = ["/app", "/app/results", "/app/agenda", "/admin", "/admin/players", "/admin/convites", "/profile"];
 
 const browser = await chromium.launch();

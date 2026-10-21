@@ -15,19 +15,22 @@ export default function SiteLayout({
     <>
       <header className="site-header">
         <div className="container inner">
-          <Link href="/" className="brand">
-            <img src="/logo-challenge.png" width={30} height={30} alt="" className="brand-logo" />
-            {clubName()}
-          </Link>
+          <div className="brand-group">
+            <Link href="/" className="brand">
+              <img src="/logo-challenge.png" width={30} height={30} alt="" className="brand-logo" />
+              {clubName()}
+            </Link>
+            <Link href="/app" className="btn btn-sm">
+              Área do jogador
+            </Link>
+          </div>
           <nav className="nav">
             <Link href="/">Início</Link>
             <Link href="/rankings">Classificação</Link>
             <Link href="/results">Resultados</Link>
+            <Link href="/atletas">Atletas</Link>
             <Link href="/agenda">Agenda</Link>
             <Link href="/rules">Regulamento</Link>
-            <Link href="/login" className="subtle">
-              Área do jogador
-            </Link>
           </nav>
         </div>
       </header>
@@ -41,6 +44,7 @@ export default function SiteLayout({
             <Link href="/rules">Regulamento</Link> ·{" "}
             <Link href="/rankings">Classificação</Link> ·{" "}
             <Link href="/results">Resultados</Link> ·{" "}
+            <Link href="/atletas">Atletas</Link> ·{" "}
             <Link href="/agenda">Agenda</Link>
           </span>
         </div>

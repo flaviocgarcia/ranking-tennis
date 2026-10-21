@@ -8,7 +8,12 @@ import type { ProfileRow } from "@/types/db";
  * fora por privacidade (o grant de select é por coluna — ver 0002_rls.sql).
  * O e-mail do próprio usuário vem do Auth (`SessionInfo.email`).
  */
-export type SessionProfile = Omit<ProfileRow, "email" | "telegram_link_code">;
+// `ref_level` fica de fora: ele só é lido na relação pública (grant do
+// anon) e no painel administrativo (chave de serviço) — a sessão não usa.
+export type SessionProfile = Omit<
+  ProfileRow,
+  "email" | "telegram_link_code" | "ref_level"
+>;
 
 export interface SessionInfo {
   userId: string;

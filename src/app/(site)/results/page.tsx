@@ -117,13 +117,17 @@ export default async function PublicResultsPage() {
                   <td>
                     <span className="small">
                       <strong
-                        className={m.winner === "p1" ? undefined : "muted"}
+                        className={
+                          m.winner === "p1" ? "res-win" : m.winner ? "res-loss" : undefined
+                        }
                       >
                         {m.p1}
                       </strong>{" "}
                       <span className="muted">x</span>{" "}
                       <strong
-                        className={m.winner === "p2" ? undefined : "muted"}
+                        className={
+                          m.winner === "p2" ? "res-win" : m.winner ? "res-loss" : undefined
+                        }
                       >
                         {m.p2}
                       </strong>

@@ -24,6 +24,8 @@ export interface ProfileRow {
   initials: string;
   role: Role;
   level_id: string | null;
+  /** Nível do atleta segundo a planilha (A–D; admite A+, B/C...). Informativo. */
+  ref_level: string | null;
   /** Nível do escopo administrativo (admin de um nível); null = geral. */
   admin_level_id: string | null;
   /** true = auto-cadastro aguardando aprovação do administrador. */

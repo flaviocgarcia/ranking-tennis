@@ -7,7 +7,7 @@ import { WithdrawButton } from "@/components/WithdrawButton";
 import { Avatar } from "@/components/Avatar";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pagination } from "@/components/Pagination";
-import { formatDate, scoreText } from "@/lib/format";
+import { formatDate, scoreText, matchVerdict } from "@/lib/format";
 import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
 
 export const metadata: Metadata = { title: "Meus resultados" };
@@ -75,6 +75,9 @@ export default async function MyResultsPage({
                 const opponent = isP1 ? m.p2 : m.p1;
                 const canWithdraw =
                   m.status === "pending" && m.reported_by === info.userId;
+                const verdict = matchVerdict(m.format, m.walkover_winner, m.sets);
+                const won =
+                  verdict === null ? null : isP1 ? verdict === "p1" : verdict === "p2";
                 return (
                   <tr key={m.id}>
                     <td>{formatDate(m.played_on)}</td>
@@ -82,10 +85,20 @@ export default async function MyResultsPage({
                     <td>
                       <span className="player-cell">
                         <Avatar initials={(opponent?.name ?? "?").slice(0, 2).toUpperCase()} />
-                        {opponent?.name ?? "?"}
+                        <span
+                          className={
+                            won === null ? undefined : won ? "res-loss" : "res-win"
+                          }
+                        >
+                          {opponent?.name ?? "?"}
+                        </span>
                       </span>
                     </td>
-                    <td>
+                    <td
+                      className={
+                        won === null ? undefined : won ? "res-win" : "res-loss"
+                      }
+                    >
                       {m.format === "walkover"
                         ? `W.O. (${
                             m.walkover_winner === (isP1 ? 1 : 2)
@@ -93,6 +106,7 @@ export default async function MyResultsPage({
                               : opponent?.name ?? "?"
                           })`
                         : scoreText(m.sets)}
+                      {won !== null && <strong> ({won ? "V" : "D"})</strong>}
                     </td>
                     <td className="col-sm muted small">
                       {m.source === "telegram" ? "Telegram" : "Site"}

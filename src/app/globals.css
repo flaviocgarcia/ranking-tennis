@@ -17,6 +17,7 @@
   --danger-soft: #fdecea;
   --warn: #8a6100;
   --warn-soft: #fff4d6;
+  --win: #1a7f37;
   --radius: 10px;
 }
 
@@ -83,6 +84,12 @@ a:hover {
   border: 1px solid var(--border);
   margin-right: 8px;
   vertical-align: -8px;
+}
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .nav {
   display: flex;
@@ -556,4 +563,34 @@ textarea:focus {
   .table td {
     padding: 7px 6px;
   }
+}
+
+/* ---------- Vencedor/derrotado nas listas de resultados ---------- */
+.res-win {
+  color: var(--win);
+  font-weight: 700;
+}
+.res-loss {
+  color: var(--danger);
+}
+
+/* ---------- Relação de atletas (/atletas) ---------- */
+.badge-level {
+  background: var(--text);
+  color: #fff;
+  margin-left: 8px;
+}
+.grid .athlete {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.grid .athlete .athlete-name {
+  flex: 1;
+  font-weight: 700;
+}
+.grid .athlete .badge-level {
+  margin-left: auto;
 }

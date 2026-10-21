@@ -41,7 +41,10 @@ pelos scripts e pela verificação de consistência.
   pontos, jogos **JGS** e média), com janela de 12 meses aplicada na leitura.
 - `/results` e `/results/challenger` — resultados confirmados com
   distintivo **Grand Slam** / **W.O.**; pendentes/rejeitados nunca aparecem.
+  Vencedor em verde e derrotado em vermelho (inclusive em "Meus resultados").
 - `/agenda` — quem marcou disponibilidade nas próximas datas.
+- `/atletas` — relação de participantes com o nível A–D de cada um
+  (etiqueta editável só pelo administrador, sem efeito no ranking).
 - Revalidação **sob demanda** (`revalidatePath` em escritas oficiais +
   `revalidate = 3600` nas páginas de ranking) — nada roda por relógio.
 

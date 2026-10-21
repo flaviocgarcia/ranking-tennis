@@ -18,10 +18,15 @@ export default async function AdminLayout({
     <>
       <header className="site-header">
         <div className="container inner">
-          <Link href="/admin" className="brand">
-            <span className="mark">⚙</span>
-            Admin · {clubName()}
-          </Link>
+          <div className="brand-group">
+            <Link href="/admin" className="brand">
+              <img src="/logo-challenge.png" width={30} height={30} alt="" className="brand-logo" />
+              Admin · {clubName()}
+            </Link>
+            <Link href="/" className="btn btn-sm btn-secondary">
+              Área geral
+            </Link>
+          </div>
           <nav className="nav">
             <Link href="/admin">Painel</Link>
             <Link href="/admin/results">Resultados</Link>

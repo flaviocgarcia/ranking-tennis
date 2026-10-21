@@ -153,6 +153,13 @@ export async function updatePlayerAction(
       return { ok: false, error: "Você não pode remover seu próprio acesso de administrador." };
     }
 
+    // Nível A–D do atleta (etiqueta da planilha; não altera o ranking).
+    const refRaw = String(formData.get("ref_level") ?? "")
+      .trim()
+      .toUpperCase()
+      .slice(0, 10);
+    const refLevel = /^[A-D](\+|[+/][A-D])?$/.test(refRaw) ? refRaw : null;
+
     const initials = initialsFromName(name);
     const { error } = await admin
       .from("profiles")
@@ -160,6 +167,7 @@ export async function updatePlayerAction(
         name,
         initials,
         level_id: levelId,
+        ref_level: refLevel,
         active,
         role,
         admin_level_id: adminLevelId,

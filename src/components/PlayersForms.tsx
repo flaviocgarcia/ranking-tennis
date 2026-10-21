@@ -14,6 +14,9 @@ export interface LevelOption {
   name: string;
 }
 
+/** Níveis A–D do atleta — inclui as formas intermediárias da planilha. */
+const REF_LEVEL_OPTIONS = ["A+", "A", "A/B", "B", "B/A", "B/C", "C", "C/B", "D"];
+
 function TempPassword({ email, password }: { email?: string; password: string }) {
   return (
     <div className="alert alert-warn">
@@ -148,6 +151,7 @@ export function EditPlayerForm({
     id: string;
     name: string;
     level_id: string | null;
+    ref_level: string | null;
     active: boolean;
     role: "admin" | "player";
     admin_level_id: string | null;
@@ -236,6 +240,19 @@ export function EditPlayerForm({
             <select id="active" name="active" defaultValue={player.active ? "true" : "false"}>
               <option value="true">Ativo</option>
               <option value="false">Inativo (sai do ranking)</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="ref_level">
+              Nível (A–D) <span className="hint">etiqueta do atleta</span>
+            </label>
+            <select id="ref_level" name="ref_level" defaultValue={player.ref_level ?? ""}>
+              <option value="">— sem nível —</option>
+              {REF_LEVEL_OPTIONS.map((lv) => (
+                <option key={lv} value={lv}>
+                  {lv}
+                </option>
+              ))}
             </select>
           </div>
         </div>
