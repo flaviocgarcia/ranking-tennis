@@ -62,9 +62,9 @@ function todayISO(): string {
 
 const FORMAT_HINTS: Record<MatchFormat, string> = {
   normal:
-    "Normal: melhor de 3 — 2 sets para vencer; o 3º set (empate 1-1) é o tiebreakão (1º a 10, vantagem de 2 — ex.: 10-12) e set comum (ex.: 6-4) também vale. Digite no formato 6-4.",
+    "Normal: melhor de 3 — 2 sets para vencer; o 3º set (empate 1-1) é o tiebreakão (1º a 10, vantagem de 2 — ex.: 10-12) e set comum (ex.: 6-4) também vale. Preencha os games de cada lado (ex.: 6 × 4).",
   grand_slam:
-    "Grand Slam: melhor de 5, sem tiebreakão — a partida só termina quando um jogador fecha 3 sets. Digite no formato 6-4.",
+    "Grand Slam: melhor de 5, sem tiebreakão — a partida só termina quando um jogador fecha 3 sets. Preencha os games de cada lado (ex.: 6 × 4).",
   walkover:
     "W.O.: use apenas quando um jogador NÃO apareceu sem avisar (300 pts para quem venceu, 50 para o faltoso). Não há placar.",
 };
@@ -127,16 +127,22 @@ export function MatchForm({ mode, levels, players, initial }: Props) {
     });
   }
 
-  function updateSet(index: number, value: string) {
-    // Só dígitos e um hífen, até 2 dígitos por lado — o bastante para
-    // tiebreakões como 10-12 e 12-10. O formato e a validação do placar
-    // acontecem no servidor (`parseSetStrings` + `validateChallengerScore`).
-    const sides = value.replace(/[^\d-]/g, "").split("-");
-    const clean =
-      sides.length > 1
-        ? `${(sides[0] ?? "").slice(0, 2)}-${(sides[1] ?? "").slice(0, 2)}`
-        : (sides[0] ?? "").slice(0, 2);
-    setSets((prev) => prev.map((s, i) => (i === index ? clean : s)));
+  function updateSetSide(index: number, side: 0 | 1, raw: string) {
+    // Só dígitos, até 2 por lado — o bastante para tiebreakões como 10-12.
+    // Dois campos por set: no celular o teclado numérico não tem hífen,
+    // então o placar "6-4" é montado a partir dos dois lados. O formato e
+    // a validação final acontecem no servidor (`parseSetStrings` +
+    // `validateChallengerScore`).
+    const digits = raw.replace(/\D/g, "").slice(0, 2);
+    setSets((prev) =>
+      prev.map((s, i) => {
+        if (i !== index) return s;
+        const [a = "", b = ""] = s.split("-");
+        const nextA = side === 0 ? digits : a;
+        const nextB = side === 1 ? digits : b;
+        return nextB === "" ? nextA : `${nextA}-${nextB}`;
+      }),
+    );
   }
 
   const p1Name =
@@ -327,30 +333,44 @@ export function MatchForm({ mode, levels, players, initial }: Props) {
             Placar <span className="hint">{FORMAT_HINTS[format]}</span>
           </label>
           <div className="set-sets">
-            {sets.map((value, i) => (
-              <div className="set-row" key={i}>
-                <span className="muted small" style={{ width: 46 }}>
-                  Set {i + 1}
-                </span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="6-4"
-                  value={value}
-                  aria-label={`Placar do set ${i + 1}`}
-                  onChange={(e) => updateSet(i, e.target.value)}
-                />
-                {sets.length > 1 && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setSets((prev) => prev.filter((_, j) => j !== i))}
-                  >
-                    Remover
-                  </button>
-                )}
-              </div>
-            ))}
+            {sets.map((value, i) => {
+              const [a = "", b = ""] = value.split("-");
+              return (
+                <div className="set-row" key={i}>
+                  <span className="muted small set-tag">Set {i + 1}</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={2}
+                    placeholder="6"
+                    value={a}
+                    aria-label={`Games de ${p1Name} no set ${i + 1}`}
+                    onChange={(e) => updateSetSide(i, 0, e.target.value)}
+                  />
+                  <span className="set-sep" aria-hidden="true">
+                    ×
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={2}
+                    placeholder="4"
+                    value={b}
+                    aria-label={`Games de ${p2Name} no set ${i + 1}`}
+                    onChange={(e) => updateSetSide(i, 1, e.target.value)}
+                  />
+                  {sets.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setSets((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
           {sets.length < maxSets && (
             <button

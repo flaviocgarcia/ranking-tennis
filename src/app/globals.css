@@ -65,7 +65,9 @@ a:hover {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 12px 0;
+  /* Só o vertical: o padding lateral (16px) vem do .container, e ele é
+     o que mantém o menu afastado da borda no celular. */
+  padding-block: 12px;
 }
 .brand {
   font-weight: 800;
@@ -407,9 +409,22 @@ textarea:focus {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+}
+.set-tag {
+  min-width: 44px;
 }
 .set-row input {
-  max-width: 110px;
+  /* Dois campos por set (games de cada lado): no celular abre o teclado
+     NUMÉRICO — não há hífen para digitar — e o placar "6-4" é montado
+     sozinho a partir dos dois lados. */
+  width: 60px;
+  text-align: center;
+  padding: 8px 4px;
+}
+.set-sep {
+  color: var(--muted);
+  font-weight: 700;
 }
 .set-sets {
   display: flex;

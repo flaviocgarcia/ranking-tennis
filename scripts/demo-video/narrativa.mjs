@@ -219,7 +219,8 @@ export const CENARIOS = [
           await h.goto("/app/results/new");
           await h.hyd(p.locator("form"));
           await p.getByLabel("Adversário").selectOption({ label: "Bruno Carvalho" });
-          await p.getByLabel("Placar do set 1").fill("11-7");
+          await p.getByLabel(/no set 1$/).first().fill("11");
+          await p.getByLabel(/no set 1$/).nth(1).fill("7");
         },
       },
       {
@@ -234,10 +235,13 @@ export const CENARIOS = [
         texto:
           "Corrigindo o placar: seis a quatro, três a seis, e o super tiebreak decisivo, terminado em dez a oito.",
         acao: async (p, h) => {
-          await p.getByLabel("Placar do set 1").fill("6-4");
-          await p.getByLabel("Placar do set 2").fill("3-6");
+          await p.getByLabel(/no set 1$/).first().fill("6");
+          await p.getByLabel(/no set 1$/).nth(1).fill("4");
+          await p.getByLabel(/no set 2$/).first().fill("3");
+          await p.getByLabel(/no set 2$/).nth(1).fill("6");
           await h.click(p.getByRole("button", { name: "+ Adicionar set" }));
-          await p.getByLabel("Placar do set 3").fill("10-8");
+          await p.getByLabel(/no set 3$/).first().fill("10");
+          await p.getByLabel(/no set 3$/).nth(1).fill("8");
         },      },
       {
         texto:
