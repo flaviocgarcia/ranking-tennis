@@ -11,6 +11,7 @@ import {
 } from "@/lib/results/view";
 import { formatDate, scoreText } from "@/lib/format";
 import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
+import { DataTable } from "@/components/DataTable";
 
 export const metadata: Metadata = {
   title: "Resultados",
@@ -99,7 +100,7 @@ export default async function PublicResultsPage() {
           <p className="muted">Nenhuma partida confirmada até o momento.</p>
         </div>
       ) : (
-        <div className="table-wrap mt">
+        <DataTable className="mt" searchPlaceholder="Buscar por atleta...">
           <table className="table">
             <thead>
               <tr>
@@ -114,7 +115,7 @@ export default async function PublicResultsPage() {
                 <tr key={m.id}>
                   <td>{formatDate(m.playedOn)}</td>
                   <td className="col-sm">{MATCH_FORMAT_LABELS[m.format]}</td>
-                  <td>
+                  <td data-sort={`${m.p1} ${m.p2}`}>
                     <span className="small">
                       <strong
                         className={
@@ -144,7 +145,7 @@ export default async function PublicResultsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </DataTable>
       )}
 
       <p className="muted small mt center">

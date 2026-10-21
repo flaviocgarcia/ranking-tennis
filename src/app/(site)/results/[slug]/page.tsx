@@ -12,6 +12,7 @@ import {
 } from "@/lib/results/view";
 import { formatDate, scoreText } from "@/lib/format";
 import { MATCH_FORMAT_LABELS } from "@/lib/domain/challenger";
+import { DataTable } from "@/components/DataTable";
 import type { LevelRow } from "@/types/db";
 
 /**
@@ -132,7 +133,7 @@ export default async function PublicLevelResultsPage({ params }: PageProps) {
           </p>
         </div>
       ) : (
-        <div className="table-wrap mt">
+        <DataTable className="mt" searchPlaceholder="Buscar por atleta...">
           <table className="table">
             <thead>
               <tr>
@@ -146,7 +147,7 @@ export default async function PublicLevelResultsPage({ params }: PageProps) {
               {rows.map((m) => (
                 <tr key={m.id}>
                   <td>{formatDate(m.playedOn)}</td>
-                  <td>
+                  <td data-sort={`${m.p1} ${m.p2}`}>
                     <span className="small">
                       <strong
                         className={
@@ -177,7 +178,7 @@ export default async function PublicLevelResultsPage({ params }: PageProps) {
               ))}
             </tbody>
           </table>
-        </div>
+        </DataTable>
       )}
 
       <p className="muted small mt center">

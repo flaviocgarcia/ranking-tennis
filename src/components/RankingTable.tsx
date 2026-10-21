@@ -1,13 +1,15 @@
 import { Avatar } from "@/components/Avatar";
+import { DataTable } from "@/components/DataTable";
 import type { ChallengerViewRow } from "@/lib/domain/challenger";
 
 /**
  * Tabela da classificação do F CHALLENGER (página pública estática).
  * Mesmas colunas da planilha: POS · ATLETA · PONTOS · JGS · MÉDIA.
+ * Ordenável por coluna e com busca por atleta (DataTable, no navegador).
  */
 export function RankingTable({ rows }: { rows: ChallengerViewRow[] }) {
   return (
-    <div className="table-wrap">
+    <DataTable searchPlaceholder="Buscar atleta...">
       <table className="table">
         <thead>
           <tr>
@@ -26,7 +28,7 @@ export function RankingTable({ rows }: { rows: ChallengerViewRow[] }) {
                   {r.pos}
                 </strong>
               </td>
-              <td>
+              <td data-sort={r.name}>
                 <span className="player-cell">
                   <Avatar initials={r.initials} />
                   {r.name}
@@ -46,6 +48,6 @@ export function RankingTable({ rows }: { rows: ChallengerViewRow[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </DataTable>
   );
 }

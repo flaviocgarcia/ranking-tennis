@@ -39,9 +39,14 @@ pelos scripts e pela verificação de consistência.
 - `/` — início do F CHALLENGER; `/rules` — regulamento completo.
 - `/rankings` e `/rankings/challenger` — classificação (posição, atleta,
   pontos, jogos **JGS** e média), com janela de 12 meses aplicada na leitura.
+  Colunas **ordenáveis** (1º clique crescente, 2º decrescente, 3º volta à
+  ordem original) e **busca por atleta** — tudo no navegador, sem requisição
+  extra e sem sair do HTML estático.
 - `/results` e `/results/challenger` — resultados confirmados com
   distintivo **Grand Slam** / **W.O.**; pendentes/rejeitados nunca aparecem.
   Vencedor em verde e derrotado em vermelho (inclusive em "Meus resultados").
+  Também com **ordenação por coluna** (data cronológica, atleta, placar) e
+  **busca por atleta**.
 - `/agenda` — quem marcou disponibilidade nas próximas datas.
 - `/atletas` — relação de participantes com o nível A–D de cada um
   (etiqueta editável só pelo administrador, sem efeito no ranking).

@@ -59,4 +59,6 @@ npm run dev                                # local, ou BASE=https://...
 node scripts/smoke-prod.mjs                # rotas públicas/privadas + login
 node scripts/check-agenda.mjs              # E2E completo da agenda (se limpa)
 node scripts/check-pwa.mjs                 # manifesto, SW e cache offline
+node scripts/check-tables.mjs              # ordenação/busca em /rankings e /results
+node scripts/check-mobile.mjs              # layout e placar em viewport de celular
 ```

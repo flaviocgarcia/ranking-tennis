@@ -245,6 +245,42 @@ a:hover {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Ordenação e busca nas tabelas (DataTable) ---------- */
+.table-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.table-search {
+  max-width: 280px;
+}
+.table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.table th.sortable::after {
+  content: " ↕";
+  font-size: 10px;
+  opacity: 0.3;
+}
+.table th.sortable:hover::after {
+  opacity: 0.8;
+}
+.table th.sortable:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: -2px;
+}
+.table th[aria-sort="ascending"]::after {
+  content: " ▲";
+  opacity: 0.9;
+}
+.table th[aria-sort="descending"]::after {
+  content: " ▼";
+  opacity: 0.9;
+}
 .table-wrap {
   overflow-x: auto;
   background: var(--card);
@@ -365,6 +401,7 @@ a:hover {
   font-weight: 400;
 }
 input[type="text"],
+input[type="search"],
 input[type="email"],
 input[type="password"],
 input[type="number"],
