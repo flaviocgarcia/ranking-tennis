@@ -276,7 +276,7 @@ export function MatchForm({ mode, levels, players, initial }: Props) {
         <label>
           Formato{" "}
           <span className="hint">
-            Normal vale 300-200/50-100; Grand Slam, 450-75; W.O., 300/0.
+            Normal vale 300-200/50-100; Grand Slam, 450-75/150/300; W.O., 300/0.
           </span>
         </label>
         <div className="inline-fields" role="radiogroup" aria-label="Formato">

@@ -79,11 +79,25 @@ export default function RulesPage() {
                 <td className="num">100</td>
               </tr>
               <tr>
-                <td>Grand Slam — perdedor (qualquer placar)</td>
+                <td>Grand Slam — perdedor sem set (3 x 0)</td>
                 <td className="num">
                   <strong>450</strong>
                 </td>
                 <td className="num">75</td>
+              </tr>
+              <tr>
+                <td>Grand Slam — perdedor com 1 set (3 x 1)</td>
+                <td className="num">
+                  <strong>450</strong>
+                </td>
+                <td className="num">150</td>
+              </tr>
+              <tr>
+                <td>Grand Slam — perdedor com 2 sets (3 x 2)</td>
+                <td className="num">
+                  <strong>450</strong>
+                </td>
+                <td className="num">300</td>
               </tr>
               <tr>
                 <td>W.O. (incomparecimento)</td>

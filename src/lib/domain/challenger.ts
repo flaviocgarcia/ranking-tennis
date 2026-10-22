@@ -97,7 +97,7 @@ export function validateChallengerScore(
  * | Formato     | Vencedor            | Perdedor               |
  * |-------------|---------------------|------------------------|
  * | Normal      | 2x0 = 300 · 2x1 = 200 | 0 sets = 50 · 1 set = 100 |
- * | Grand Slam  | sempre 450          | sempre 75              |
+ * | Grand Slam  | sempre 450          | 0 = 75 · 1 = 150 · 2 = 300 |
  * | W.O.        | 300                 | 0                      |
  */
 export function matchPoints(
@@ -108,9 +108,10 @@ export function matchPoints(
     return result.winner === "p1" ? { p1: 300, p2: 0 } : { p1: 0, p2: 300 };
   }
   if (format === "grand_slam") {
+    const loser = result.loserSets === 0 ? 75 : result.loserSets === 1 ? 150 : 300;
     return result.winner === "p1"
-      ? { p1: 450, p2: 75 }
-      : { p1: 75, p2: 450 };
+      ? { p1: 450, p2: loser }
+      : { p1: loser, p2: 450 };
   }
   const winner = result.loserSets === 0 ? 300 : 200;
   const loser = result.loserSets === 0 ? 50 : 100;
