@@ -42,3 +42,18 @@ export function telegramToken(): string | null {
 export function telegramSecret(): string | null {
   return process.env.TELEGRAM_WEBHOOK_SECRET || null;
 }
+
+/** Chave pública VAPID (Web Push) — exposta ao navegador por definição. */
+export function vapidPublicKey(): string | null {
+  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null;
+}
+
+/** Chave privada VAPID — SOMENTE no servidor (nunca no navegador). */
+export function vapidPrivateKey(): string | null {
+  return process.env.VAPID_PRIVATE_KEY || null;
+}
+
+/** Contato do responsável nas notificações push (mailto:… ou https:…). */
+export function vapidSubject(): string {
+  return process.env.VAPID_SUBJECT || "mailto:admin@localhost";
+}

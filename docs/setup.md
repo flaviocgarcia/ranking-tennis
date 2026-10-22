@@ -207,6 +207,13 @@ Copie `.env.example` para `.env.local` (local) e configure na Vercel
 | `NEXT_PUBLIC_CLUB_NAME` | não | nome exibido no site (ex.: `F CHALLENGER`) |
 | `TELEGRAM_BOT_TOKEN` | não | token do @BotFather (sistema funciona sem) |
 | `TELEGRAM_WEBHOOK_SECRET` | não | segredo aleatório longo para o header do webhook |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | não | chave pública VAPID das notificações push (sistema funciona sem) |
+| `VAPID_PRIVATE_KEY` | não | chave privada VAPID (pareada com a pública; nunca no navegador) |
+| `VAPID_SUBJECT` | não | contato do responsável: `mailto:email@dominio.com` |
+
+As chaves VAPID das notificações push geram-se com
+`npx web-push generate-vapid-keys` (a pública é exposta ao navegador
+por definição; a privada fica só no servidor).
 
 No Supabase, adicione o domínio da Vercel em **Authentication → URL
 Configuration → Redirect URLs**: `https://seu-app.vercel.app/**`.

@@ -8,6 +8,7 @@ import { listRecentMatchesOf } from "@/lib/queries/matches";
 import { getLevelAdmin } from "@/lib/queries/levels";
 import { applyWindow, toViewRows, windowStart } from "@/lib/domain/challenger";
 import { Avatar } from "@/components/Avatar";
+import { EnablePush } from "@/components/EnablePush";
 import { StatusBadge } from "@/components/StatusBadge";
 import {
   formatDate,
@@ -103,6 +104,8 @@ export default async function DashboardPage() {
           para começar a aparecer no ranking.
         </div>
       )}
+
+      <EnablePush />
 
       <div className="card">
         <div className="stat-row">

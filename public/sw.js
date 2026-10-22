@@ -10,11 +10,11 @@
  *   - domínios externos      -> fora do escopo (Supabase é chamado do
  *                              servidor, não do navegador).
  *
- * Não há rotinas periódicas aqui: só eventos install/activate/fetch.
- * Os handlers de push/notificationclick entram na fase das notificações.
+ * Além do cache, este worker recebe as notificações Web Push (evento
+ * `push`) e as abre na página certa ao clicar (`notificationclick`).
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `ranking-tenis-${VERSION}`;
 const CACHE_PREFIX = "ranking-tenis-";
 
@@ -96,3 +96,55 @@ async function networkFirst(req) {
     throw err;
   }
 }
+
+/* ---------- Web Push ----------
+ *
+ * O payload enviado pelas server actions é
+ * `{ title, body, url }`; `url` é um caminho interno (ex.:
+ * /app/chat?c=… ou /admin/results). O clique foca uma aba já aberta e
+ * navega para o destino — ou abre uma nova.
+ */
+self.addEventListener("push", (event) => {
+  let data = { title: "F CHALLENGER", body: "", url: "/app" };
+  try {
+    data = { ...data, ...event.data.json() };
+  } catch {
+    // Payload sem JSON válido: mostra o texto bruto.
+    if (event.data) data.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icon.svg",
+      badge: "/icon.svg",
+      data: { url: data.url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const destino = new URL(
+    (event.notification.data && event.notification.data.url) || "/app",
+    self.location.origin,
+  ).href;
+  event.waitUntil(
+    (async () => {
+      const janelas = await clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const janela of janelas) {
+        if (janela.url.startsWith(self.location.origin) && "focus" in janela) {
+          await janela.focus();
+          if ("navigate" in janela) {
+            await janela.navigate(destino);
+            return;
+          }
+          return;
+        }
+      }
+      await clients.openWindow(destino);
+    })(),
+  );
+});

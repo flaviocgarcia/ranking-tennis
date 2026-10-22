@@ -66,7 +66,6 @@ export interface SnapshotRow {
 }
 
 export type AvailabilitySlot = "morning" | "afternoon" | "evening" | "any";
-
 export interface AvailabilityRow {
   id: string;
   player_id: string;
@@ -76,6 +75,39 @@ export interface AvailabilityRow {
   slot: AvailabilitySlot;
   created_at: string;
   updated_at: string;
+}
+
+export type ChatChannelKind = "geral" | "dm";
+
+export interface ChatChannelRow {
+  id: string;
+  kind: ChatChannelKind;
+  /** dm: par ordenado "uuidMenor|uuidMaior"; null no canal geral. */
+  dm_pair: string | null;
+  created_at: string;
+}
+
+export interface ChatMemberRow {
+  channel_id: string;
+  user_id: string;
+  last_read_at: string;
+}
+
+export interface ChatMessageRow {
+  id: string;
+  channel_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
 }
 
 /** Resultado padrão de uma server action. */

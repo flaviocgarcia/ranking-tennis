@@ -12,6 +12,7 @@ import {
   type MatchFormat,
 } from "@/lib/domain/challenger";
 import { rebuildAndRevalidate } from "@/lib/ranking/service";
+import { notifyMatchDecision, notifyNewPendingResult } from "@/lib/push/notify";
 import { getLevelAdmin } from "@/lib/queries/levels";
 import { getMatchAdmin } from "@/lib/queries/matches";
 import { dateString, parseSetStrings, uuidString } from "@/lib/validation";
@@ -236,6 +237,9 @@ export async function submitMatchAction(
     });
     if (error) throw new Error(error.message);
 
+    // Gatilho de notificação: admins sabem na hora que há pendência nova.
+    await notifyNewPendingResult(info.profile.name);
+
     // Pendente não altera o ranking oficial => nenhum recálculo.
     return { ok: true };
   } catch (e) {
@@ -381,6 +385,16 @@ export async function setMatchStatusAction(formData: FormData): Promise<void> {
 
   if (existing.status === "confirmed" || target === "confirmed") {
     await afterOfficialChange(existing.level_id);
+  }
+
+  // Gatilho de notificação: quem informou o resultado fica sabendo do
+  // resultado da análise (o próprio administrador não é notificado).
+  if (
+    (target === "confirmed" || target === "rejected") &&
+    existing.reported_by &&
+    existing.reported_by !== info.userId
+  ) {
+    await notifyMatchDecision(existing, target);
   }
 }
 
