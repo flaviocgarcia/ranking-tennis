@@ -99,6 +99,13 @@ export default async function AdminHomePage() {
           <div className="title">Resultados</div>
           <div className="desc">Confirmar, corrigir, rejeitar ou excluir partidas.</div>
         </Link>
+        <a href="/admin/results/export" className="link-card">
+          <div className="title">Exportar planilha</div>
+          <div className="desc">
+            Baixe todos os resultados confirmados em CSV, com a pontuação
+            atribuída a cada jogador — um backup completo.
+          </div>
+        </a>
         {!scope && (
           <Link href="/admin/convites" className="link-card">
             <div className="title">Convites e ativação</div>

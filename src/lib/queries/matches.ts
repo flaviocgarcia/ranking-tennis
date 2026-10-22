@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MatchRow, MatchStatus } from "@/types/db";
+import type { ExportMatchRow } from "@/lib/export/results-csv";
 
 export const MATCH_ADMIN_COLS =
   "id, level_id, player1_id, player2_id, sets, format, walkover_winner, status, reported_by, confirmed_by, confirmed_at, played_on, source, external_ref, created_at, updated_at";
@@ -154,6 +155,44 @@ export async function listRecentMatchesOf(
     .limit(limit);
   if (error) throw new Error(`Falha ao buscar resultados: ${error.message}`);
   return (data ?? []) as never;
+}
+
+const MATCH_EXPORT_JOINS = `${MATCH_ADMIN_COLS}, level:levels(name), p1:profiles!matches_player1_id_fkey(name), p2:profiles!matches_player2_id_fkey(name), rep:profiles!matches_reported_by_fkey(name), conf:profiles!matches_confirmed_by_fkey(name)`;
+
+/** Tamanho de cada página da exportação (limite do PostgREST por resposta). */
+const EXPORT_PAGE_SIZE = 1000;
+/** Trava de segurança: 100 mil resultados é muito além do real. */
+const EXPORT_MAX_ROWS = 100_000;
+
+/**
+ * Resultados CONFIRMADOS de todo o escopo, para o backup em planilha.
+ *
+ * A API do Supabase devolve no máximo `EXPORT_PAGE_SIZE` linhas por
+ * resposta, então paginamos internamente até esgotar — o backup nunca
+ * sai truncado. O escopo do administrador de nível é aplicado aqui.
+ */
+export async function listConfirmedMatchesForExport(
+  supabase: SupabaseClient,
+  levelId?: string | null,
+): Promise<ExportMatchRow[]> {
+  const rows: ExportMatchRow[] = [];
+  for (let from = 0; from < EXPORT_MAX_ROWS; from += EXPORT_PAGE_SIZE) {
+    let query = supabase
+      .from("matches")
+      .select(MATCH_EXPORT_JOINS)
+      .eq("status", "confirmed")
+      .order("played_on", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + EXPORT_PAGE_SIZE - 1);
+    if (levelId) query = query.eq("level_id", levelId);
+
+    const { data, error } = await query;
+    if (error) throw new Error(`Falha ao exportar resultados: ${error.message}`);
+    const page = (data ?? []) as unknown as ExportMatchRow[];
+    rows.push(...page);
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  return rows;
 }
 
 export async function getMatchAdmin(
