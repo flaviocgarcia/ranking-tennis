@@ -142,7 +142,7 @@ export default async function ChatPage({
   if (activeId) {
     const { data } = await supabase
       .from("chat_messages")
-      .select("id, sender_id, body, created_at")
+      .select("id, sender_id, body, created_at, edited_at")
       .eq("channel_id", activeId)
       .order("created_at", { ascending: true })
       .limit(MESSAGE_LIMIT);
@@ -151,11 +151,13 @@ export default async function ChatPage({
       sender_id: string;
       body: string;
       created_at: string;
+      edited_at: string | null;
     }>).map((m) => ({
       id: m.id,
       senderId: m.sender_id,
       body: m.body,
       createdAt: m.created_at,
+      editedAt: m.edited_at,
     }));
 
     // Quem abriu a conversa leu — zera o contador no servidor.

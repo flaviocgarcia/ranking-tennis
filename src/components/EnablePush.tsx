@@ -22,10 +22,21 @@ function isIos(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
-/** iPhone fora da tela de início não recebe push web (regra da Apple). */
+/**
+ * iPhone fora da tela de início não recebe push web (regra da Apple,
+ * iOS 16.4+). Checamos `navigator.standalone` (Safari) e também o
+ * display-mode do manifesto — cobre aberturas via Chrome iOS/Edge iOS.
+ */
 function iosSemApp(): boolean {
   const nav = navigator as Navigator & { standalone?: boolean };
-  return isIos() && nav.standalone !== true;
+  if (!isIos()) return false;
+  if (nav.standalone === true) return false;
+  try {
+    if (window.matchMedia("(display-mode: standalone)").matches) return false;
+  } catch {
+    // matchMedia indisponível — segue com o standalone do Safari.
+  }
+  return true;
 }
 
 /**
@@ -48,6 +59,10 @@ export function EnablePush() {
         setEstado("indisponivel");
         return;
       }
+      // iPhone: o service worker precisa estar INSTALADO E ATIVO antes do
+      // subscribe — registrar só no clique deixa o iOS com race condition.
+      // Registramos já na primeira renderização do card.
+      void navigator.serviceWorker.register("/sw.js").catch(() => {});
       try {
         const reg = await navigator.serviceWorker.getRegistration();
         const sub = await reg?.pushManager.getSubscription();
@@ -67,6 +82,12 @@ export function EnablePush() {
         setDicaIos(true);
         return;
       }
+      // Ordem que o iOS exige: SW instalado e ATIVO → permissão → subscribe.
+      // `serviceWorker.ready` só resolve quando há um SW ativo no escopo.
+      if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.register("/sw.js");
+        await navigator.serviceWorker.ready;
+      }
       const permissao = await Notification.requestPermission();
       if (permissao !== "granted") {
         setEstado("negado");
@@ -78,7 +99,7 @@ export function EnablePush() {
         return;
       }
       try {
-        const reg = await navigator.serviceWorker.register("/sw.js");
+        const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(key),
@@ -95,11 +116,15 @@ export function EnablePush() {
           alert(res.error);
           return;
         }
-      } catch {
-        // Navegadores restringem o Push API em janelas anônimas/headless.
+      } catch (e) {
+        // Navegadores restringem o Push API em janelas anônimas/headless;
+        // no iPhone, falha comum = app aberto fora da tela de início.
+        const motivo = e instanceof Error ? e.message : "";
         alert(
-          "Não foi possível ativar as notificações neste navegador. " +
-            "Abra o site em uma janela normal e tente de novo.",
+          "Não foi possível ativar as notificações neste navegador." +
+            (motivo ? ` Detalhe: ${motivo}.` : "") +
+            " Confira se o site está aberto pelo ícone da Tela de Início " +
+            "(no iPhone) ou em uma janela normal (no computador) e tente de novo.",
         );
         setEstado("desligado");
         return;
@@ -139,8 +164,11 @@ export function EnablePush() {
       )}
       {estado === "negado" && (
         <p className="muted" style={{ marginBottom: 0 }}>
-          As notificações estão bloqueadas. Libere-as nas configurações do
-          navegador (ícone de cadeado na barra de endereço) e tente de novo.
+          As notificações estão bloqueadas.{" "}
+          {isIos()
+            ? "No iPhone: Ajustes → Notificações → o app do clube → permitir notificações."
+            : "Libere-as nas configurações do navegador (ícone de cadeado na barra de endereço)."}{" "}
+          Depois toque em &quot;Ativar notificações&quot; de novo.
         </p>
       )}
       {estado === "desligado" && !dicaIos && (
@@ -154,10 +182,18 @@ export function EnablePush() {
       )}
       {dicaIos && (
         <p style={{ marginBottom: 0 }}>
-          <strong>No iPhone:</strong> toque em{" "}
-          <strong>Compartilhar → Adicionar à Tela de Início</strong> e abra o
-          app pela tela de início — só assim o iOS libera as notificações.
-          Depois volte aqui e toque em &quot;Ativar notificações&quot;.
+          <strong>No iPhone (iOS 16.4+)</strong> as notificações só funcionam
+          no app instalado na Tela de Início. Passo a passo:
+          <br />
+          1. No Safari, toque em <strong>Compartilhar</strong> (quadrado com
+          seta) → <strong>Adicionar à Tela de Início</strong> →{" "}
+          <strong>Adicionar</strong>.
+          <br />
+          2. Abra o app <strong>pelo ícone novo</strong> na Tela de Início
+          (faça login de novo se o app pedir).
+          <br />
+          3. Volte nesta tela e toque em{" "}
+          <strong>&quot;Ativar notificações&quot;</strong>.
         </p>
       )}
       {estado === "ligado" && (

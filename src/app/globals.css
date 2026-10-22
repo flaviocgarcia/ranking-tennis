@@ -793,6 +793,34 @@ textarea:focus {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.msg-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 12px;
+}
+.msg-action {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.65;
+  text-decoration: underline;
+  font-size: 12px;
+}
+.msg-action:hover {
+  opacity: 1;
+}
+.msg-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.msg-edit-actions {
+  display: flex;
+  gap: 8px;
+}
 .chat-form {
   display: flex;
   gap: 8px;

@@ -7,6 +7,8 @@ import {
   markChannelReadAction,
   openDmAction,
   sendChatMessageAction,
+  editChatMessageAction,
+  deleteChatMessageAction,
 } from "@/actions/chat";
 import { Avatar } from "@/components/Avatar";
 
@@ -27,6 +29,7 @@ export interface ChatMessageView {
   senderId: string;
   body: string;
   createdAt: string;
+  editedAt: string | null;
 }
 
 export interface ChatPlayerView {
@@ -72,6 +75,9 @@ export function ChatApp({
   const [dmOpen, setDmOpen] = useState(false);
   const [dmBusy, setDmBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [salvando, setSalvando] = useState(false);
   const fimRef = useRef<HTMLDivElement | null>(null);
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -95,6 +101,8 @@ export function ChatApp({
   // Ao abrir uma conversa: zera o contador e avisa o servidor.
   useEffect(() => {
     if (!activeId) return;
+    setEditando(null);
+    setEditDraft("");
     setChannels((atual) =>
       atual.map((c) => (c.id === activeId ? { ...c, unread: 0 } : c)),
     );
@@ -134,6 +142,7 @@ export function ChatApp({
               sender_id: string;
               body: string;
               created_at: string;
+              edited_at: string | null;
             };
             setMessages((atual) =>
               atual.some((m) => m.id === nova.id)
@@ -145,10 +154,49 @@ export function ChatApp({
                       senderId: nova.sender_id,
                       body: nova.body,
                       createdAt: nova.created_at,
+                      editedAt: nova.edited_at ?? null,
                     },
                   ],
             );
             if (nova.sender_id !== me.id) agendarLeitura();
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "chat_messages",
+            filter: `channel_id=eq.${activeId}`,
+          },
+          (payload) => {
+            const editada = payload.new as {
+              id: string;
+              body: string;
+              edited_at: string | null;
+            };
+            setMessages((atual) =>
+              atual.map((m) =>
+                m.id === editada.id
+                  ? { ...m, body: editada.body, editedAt: editada.edited_at }
+                  : m,
+              ),
+            );
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "chat_messages",
+            filter: `channel_id=eq.${activeId}`,
+          },
+          (payload) => {
+            // Com replica identity default o payload.old traz só a PK.
+            const id = (payload.old as { id?: string } | null)?.id;
+            if (!id) return;
+            setMessages((atual) => atual.filter((m) => m.id !== id));
           },
         )
         .subscribe((status) => {
@@ -187,9 +235,60 @@ export function ChatApp({
       setMessages((atual) =>
         atual.some((m) => m.id === id)
           ? atual
-          : [...atual, { id, senderId: me.id, body, createdAt: created_at }],
+          : [
+              ...atual,
+              {
+                id,
+                senderId: me.id,
+                body,
+                createdAt: created_at,
+                editedAt: null,
+              },
+            ],
       );
     }
+  }
+
+  /** Entra no modo de edição de uma mensagem própria. */
+  function iniciarEdicao(m: ChatMessageView) {
+    setEditando(m.id);
+    setEditDraft(m.body);
+    setErro(null);
+  }
+
+  async function salvarEdicao(e: React.FormEvent, id: string) {
+    e.preventDefault();
+    const body = editDraft.trim();
+    if (!body || salvando) return;
+    setSalvando(true);
+    setErro(null);
+    const res = await editChatMessageAction(id, body);
+    setSalvando(false);
+    if (!res.ok) {
+      setErro(res.error);
+      return;
+    }
+    setEditando(null);
+    setEditDraft("");
+    if (res.data) {
+      const novo = res.data;
+      setMessages((atual) =>
+        atual.map((m) =>
+          m.id === id ? { ...m, body: novo.body, editedAt: novo.edited_at } : m,
+        ),
+      );
+    }
+  }
+
+  async function excluir(id: string) {
+    if (!confirm("Apagar esta mensagem? Ela some para todo mundo.")) return;
+    setErro(null);
+    const res = await deleteChatMessageAction(id);
+    if (!res.ok) {
+      setErro(res.error);
+      return;
+    }
+    setMessages((atual) => atual.filter((m) => m.id !== id));
   }
 
   async function abrirDm(playerId: string) {
@@ -291,9 +390,67 @@ export function ChatApp({
                 <div className="msg-body">
                   <div className="msg-meta">
                     <strong>{meu ? "Você" : (autor?.name ?? "Jogador")}</strong>
-                    <span className="muted small">{horaCurta(m.createdAt)}</span>
+                    <span className="muted small">
+                      {horaCurta(m.createdAt)}
+                      {m.editedAt && " · editado"}
+                    </span>
                   </div>
-                  <div className="msg-text">{m.body}</div>
+                  {editando === m.id ? (
+                    <form
+                      className="msg-edit"
+                      onSubmit={(e) => void salvarEdicao(e, m.id)}
+                    >
+                      <input
+                        type="text"
+                        className="input"
+                        value={editDraft}
+                        maxLength={1000}
+                        autoFocus
+                        onChange={(e) => setEditDraft(e.target.value)}
+                      />
+                      <div className="msg-edit-actions">
+                        <button
+                          type="submit"
+                          className="btn btn-sm"
+                          disabled={salvando}
+                        >
+                          {salvando ? "Salvando…" : "Salvar"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => {
+                            setEditando(null);
+                            setEditDraft("");
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="msg-text">{m.body}</div>
+                      {meu && (
+                        <div className="msg-actions">
+                          <button
+                            type="button"
+                            className="msg-action"
+                            onClick={() => iniciarEdicao(m)}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="msg-action"
+                            onClick={() => void excluir(m.id)}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             );

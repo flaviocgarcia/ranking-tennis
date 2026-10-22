@@ -137,6 +137,74 @@ export async function markChannelReadAction(
 }
 
 /**
+ * Edita a própria mensagem: só o autor, e a RLS restringe o UPDATE às
+ * colunas body/edited_at (nenhum cliente troca channel_id/sender_id).
+ * `edited_at` alimenta o marcador "(editado)" na UI.
+ */
+export async function editChatMessageAction(
+  messageId: string,
+  rawBody: string,
+): Promise<ActionResult<{ body: string; edited_at: string }>> {
+  try {
+    const info = await requireUser();
+    if (info.profile.pending_approval) {
+      return {
+        ok: false,
+        error: "Seu cadastro ainda aguarda aprovação do administrador.",
+      };
+    }
+    const body = String(rawBody ?? "").trim();
+    if (!body) return { ok: false, error: "A mensagem não pode ficar vazia." };
+    if (body.length > MAX_BODY) {
+      return {
+        ok: false,
+        error: `Mensagem muito longa (máximo de ${MAX_BODY} caracteres).`,
+      };
+    }
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .update({ body, edited_at: new Date().toISOString() })
+      .eq("id", messageId)
+      .eq("sender_id", info.userId)
+      .select("body, edited_at")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      return { ok: false, error: "Mensagem não encontrada ou não é sua." };
+    }
+    return { ok: true, data: { body: data.body, edited_at: data.edited_at } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Erro ao editar." };
+  }
+}
+
+/** Apaga a própria mensagem (some do histórico para todos os membros). */
+export async function deleteChatMessageAction(
+  messageId: string,
+): Promise<ActionResult> {
+  try {
+    const info = await requireUser();
+    if (info.profile.pending_approval) {
+      return {
+        ok: false,
+        error: "Seu cadastro ainda aguarda aprovação do administrador.",
+      };
+    }
+    const supabase = await createSupabaseServer();
+    const { error } = await supabase
+      .from("chat_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("sender_id", info.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Erro ao apagar." };
+  }
+}
+
+/**
  * Abre (ou reutiliza) uma conversa direta com outro jogador.
  * O par é canonizado ("uuidMenor|uuidMaior") — uma única DM por par.
  */
