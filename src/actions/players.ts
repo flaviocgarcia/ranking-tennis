@@ -105,6 +105,7 @@ export async function updatePlayerAction(
 
     const id = uuidString(formData.get("id"), "Jogador");
     const name = requiredString(formData.get("name"), "Nome", 120);
+    const email = emailString(formData.get("email"));
     const active = formData.get("active") === "true";
 
     const admin = createSupabaseAdmin();
@@ -161,9 +162,26 @@ export async function updatePlayerAction(
     const refLevel = /^[A-D](\+|[+/][A-D])?$/.test(refRaw) ? refRaw : null;
 
     const initials = initialsFromName(name);
+
+    // O e-mail é o login no Auth. Corrigi-lo aqui evita que um cadastro
+    // com e-mail errado fique sem acesso (o painel usa a chave de serviço).
+    if (email !== existing.email) {
+      const { error: authErr } = await admin.auth.admin.updateUserById(id, {
+        email,
+        email_confirm: true,
+      });
+      if (authErr) {
+        if (/already|registered|exists/i.test(authErr.message)) {
+          return { ok: false, error: "Já existe um usuário com este e-mail." };
+        }
+        throw new Error(authErr.message);
+      }
+    }
+
     const { error } = await admin
       .from("profiles")
       .update({
+        email,
         name,
         initials,
         level_id: levelId,

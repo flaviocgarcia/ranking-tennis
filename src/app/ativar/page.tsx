@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ActivationForm } from "@/components/ActivationForm";
 import { clubName } from "@/lib/env";
 
@@ -23,6 +24,13 @@ export default function ActivatePage() {
         <p className="center muted small" style={{ marginTop: 4 }}>
           Cadastro dos atletas do F CHALLENGER por código de ativação.
         </p>
+        <div className="alert alert-warn small" style={{ marginTop: 12 }}>
+          <strong>Recebeu e-mail e senha temporária do administrador?</strong>{" "}
+          Esta página não é para você. Entre em{" "}
+          <Link href="/login">/login</Link> com esses dados; no primeiro acesso
+          o sistema pede para criar a sua senha definitiva. O código de
+          ativação é só para quem foi pré-cadastrado sem senha.
+        </div>
         <ActivationForm />
       </div>
     </div>

@@ -71,7 +71,12 @@ export function LoginForm() {
         {pending ? "Entrando..." : "Entrar"}
       </button>
       <p className="small muted">
-        Ainda não tem conta? <Link href="/ativar">Ative seu cadastro</Link>
+        Recebeu um código do administrador?{" "}
+        <Link href="/ativar">Ative seu cadastro</Link>.
+      </p>
+      <p className="small muted" style={{ marginTop: 4 }}>
+        Recebeu e-mail e senha temporária? Entre normalmente por aqui — no
+        primeiro acesso você cria a sua própria senha.
       </p>
     </form>
   );

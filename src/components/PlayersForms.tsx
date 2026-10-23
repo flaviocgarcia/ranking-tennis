@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   createPlayerAction,
@@ -17,7 +18,47 @@ export interface LevelOption {
 /** Níveis A–D do atleta — inclui as formas intermediárias da planilha. */
 const REF_LEVEL_OPTIONS = ["A+", "A", "A/B", "B", "B/A", "B/C", "C", "C/B", "D"];
 
-function TempPassword({ email, password }: { email?: string; password: string }) {
+function TempPassword({
+  email,
+  password,
+}: {
+  email?: string | null;
+  password: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  const loginUrl = origin ? `${origin}/login` : "/login";
+  const accessText = [
+    "Seu acesso ao ranking de tênis:",
+    `1) Abra: ${loginUrl}`,
+    `2) E-mail: ${email ?? "(o e-mail cadastrado)"}`,
+    `3) Senha temporária: ${password}`,
+    "No primeiro acesso o sistema pede para você criar a sua própria senha.",
+  ].join("\n");
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(accessText);
+    } catch {
+      // Navegador antigo/sem permissão: método clássico.
+      const area = document.createElement("textarea");
+      area.value = accessText;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
   return (
     <div className="alert alert-warn">
       <strong>Senha temporária (exibida apenas agora):</strong>{" "}
@@ -25,12 +66,24 @@ function TempPassword({ email, password }: { email?: string; password: string })
       {email && (
         <>
           {" "}
-          · usuário: <code>{email}</code>
+          · e-mail de login: <code>{email}</code>
         </>
       )}
-      <br />
-      Entregue ao jogador: ele será obrigado a definir a própria senha no
-      primeiro acesso.
+      <p className="small" style={{ margin: "8px 0 6px" }}>
+        <strong>Como o jogador entra:</strong> abra{" "}
+        <Link href="/login">/login</Link> e informe o e-mail e esta senha
+        temporária. No primeiro acesso o sistema pede para ele criar a senha
+        definitiva. <strong>Não use &ldquo;Ativar cadastro&rdquo;</strong> —
+        aquela página é só para quem recebeu um código de convite.
+      </p>
+      <div className="row-actions">
+        <button type="button" className="btn btn-sm btn-secondary" onClick={() => void copiar()}>
+          {copied ? "Copiado!" : "Copiar dados de acesso"}
+        </button>
+        <Link href="/login" className="btn btn-sm btn-secondary" target="_blank">
+          Abrir tela de login
+        </Link>
+      </div>
     </div>
   );
 }
@@ -150,6 +203,7 @@ export function EditPlayerForm({
   player: {
     id: string;
     name: string;
+    email: string | null;
     level_id: string | null;
     ref_level: string | null;
     active: boolean;
@@ -197,6 +251,22 @@ export function EditPlayerForm({
             ainda não aparece no ranking nem pode informar resultados.
           </div>
         )}
+        <div className="field">
+          <label htmlFor="email">E-mail (login)</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            maxLength={200}
+            defaultValue={player.email ?? ""}
+          />
+          <p className="hint">
+            É com este e-mail que o jogador entra no sistema. Corrija aqui se o
+            cadastro foi criado com o endereço errado — a senha atual continua
+            valendo.
+          </p>
+        </div>
         <div className="inline-fields">
           <div className="field">
             <label htmlFor="level_id">Nível</label>
@@ -299,13 +369,16 @@ export function EditPlayerForm({
         <h2>Redefinir senha</h2>
         <p className="muted small">
           Gera uma nova senha temporária e exige que o jogador defina a própria
-          senha no próximo acesso.
+          senha no próximo acesso. O login é o e-mail{" "}
+          <strong>{player.email ?? "—"}</strong> — envie os dois dados ao
+          jogador e peça para entrar em <Link href="/login">/login</Link> (não
+          em &ldquo;Ativar cadastro&rdquo;).
         </p>
         {pwState && !pwState.ok && (
           <div className="alert alert-error">{pwState.error}</div>
         )}
         {pwState?.ok && pwState.data && (
-          <TempPassword password={pwState.data.tempPassword} />
+          <TempPassword email={player.email} password={pwState.data.tempPassword} />
         )}
         <form action={pwAction}>
           <input type="hidden" name="id" value={player.id} />

@@ -20,8 +20,11 @@ export default async function NewPlayerPage() {
     <>
       <h1 className="page-title">Cadastrar jogador</h1>
       <p className="page-sub">
-        O usuário recebe uma senha temporária e é obrigado a definir a própria
-        senha no primeiro acesso.
+        O usuário é criado com um e-mail de login e uma senha temporária
+        (exibida uma única vez). Entregue os dois ao jogador: ele entra em{" "}
+        <strong>/login</strong> e, no primeiro acesso, define a própria senha.
+        Não é preciso código de ativação — essa página é só para quem já
+        recebeu um convite.
       </p>
       <div className="card">
         <CreatePlayerForm

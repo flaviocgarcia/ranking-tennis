@@ -177,9 +177,16 @@ where email = 'seu-email@exemplo.com';
   **e-mail + senha** (etapa 2) e a conta nasce **aprovada**, com login
   automático. O código é de uso único; o admin pode regerar um código não
   ativado em `/admin/convites`.
-- **Pelo administrador**: `/admin/players/new` → gera senha temporária
-  exibida **uma única vez** → jogador entra e é obrigado a trocar a senha
-  (`must_change_password`). Já nasce **aprovado**.
+- **Pelo administrador**: `/admin/players/new` → informe nome, **e-mail
+  de login** e nível → o sistema mostra a **senha temporária uma única
+  vez**, já com um botão **Copiar dados de acesso**. Envie os dois ao
+  jogador e peça para entrar em **`/login`** — **não** em `/ativar`
+  (essa página é só para quem recebeu um **código de convite**). No
+  primeiro acesso o sistema leva o jogador a `/profile`, onde ele define
+  a senha definitiva; a conta já nasce **aprovada**. Se a senha for
+  perdida, o admin gera outra em **Editar jogador → Gerar nova senha
+  temporária** (o alerta mostra a senha e o e-mail de login). O e-mail
+  também pode ser corrigido na mesma tela, mantendo a senha atual.
 - Ao ativar/criar, a classificação é recalculada e republicada na hora.
 
 ### Atalho para testes: contas demo
