@@ -6,6 +6,7 @@
 //  - pontuação de cada linha confere com as regras (Normal/GS/W.O.)
 //  - jogador comum NÃO recebe o arquivo (redirect para /app)
 import { chromium } from "playwright";
+import ExcelJS from "exceljs";
 
 const BASE = process.env.BASE ?? "http://localhost:3100";
 const errors = [];
@@ -79,14 +80,15 @@ const info = await page.locator(".page-info").innerText().catch(() => "");
 const totalPainel = Number((info.match(/·\s*([\d.]+)\s*registro/) ?? [])[1]?.replace(/\./g, "") ?? NaN);
 ok("painel mostra o total de confirmados", Number.isFinite(totalPainel), info);
 ok(
-  "botão de exportar na tela de resultados",
-  (await page.locator('a[href="/admin/results/export"]').count()) > 0,
+  "botões de exportar na tela de resultados (Excel + CSV)",
+  (await page.locator('a[href="/admin/results/export/xlsx"]').count()) > 0 &&
+    (await page.locator('a[href="/admin/results/export"]').count()) > 0,
 );
 
 await page.goto(`${BASE}/admin`, { waitUntil: "networkidle" });
 ok(
   "cartão de exportar no painel",
-  (await page.locator('a[href="/admin/results/export"]').count()) > 0,
+  (await page.locator('a[href="/admin/results/export/xlsx"]').count()) > 0,
 );
 await page.goto(`${BASE}/admin/results?status=confirmed`, { waitUntil: "networkidle" });
 
@@ -158,6 +160,124 @@ const resPlayer = await p2.request.get(`${BASE}/admin/results/export`);
 const tipoPlayer = resPlayer.headers()["content-type"] ?? "";
 ok("player NÃO recebe CSV", !/text\/csv/.test(tipoPlayer), `status=${resPlayer.status()} type=${tipoPlayer}`);
 ok("player foi mandado para a área do jogador", p2.url().includes("/app") || resPlayer.url().includes("/app"), p2.url());
+const resPlayerX = await p2.request.get(`${BASE}/admin/results/export/xlsx`);
+ok(
+  "player NÃO recebe Excel",
+  !/spreadsheetml/.test(resPlayerX.headers()["content-type"] ?? ""),
+  `status=${resPlayerX.status()} type=${resPlayerX.headers()["content-type"]}`,
+);
+
+// ================= XLSX: duas abas =================
+// (usa a sessão do admin; a página /rankings serve de fonte independente)
+await page.goto(`${BASE}/rankings`, { waitUntil: "networkidle" });
+const publicRanking = await page
+  .locator("table.table tbody tr:visible")
+  .evaluateAll((trs) =>
+    trs.map((tr) => {
+      const tds = tr.querySelectorAll("td");
+      return {
+        pos: Number(tds[0]?.textContent?.trim()),
+        name: tr.querySelector("td[data-sort]")?.getAttribute("data-sort") ?? "",
+        pts: Number(tds[2]?.textContent?.trim()),
+      };
+    }),
+  );
+ok("classificação pública carregada", publicRanking.length > 0, `${publicRanking.length} jogadores`);
+
+const resX = await page.request.get(`${BASE}/admin/results/export/xlsx`);
+ok("xlsx resposta 200", resX.status() === 200, `status=${resX.status()}`);
+ok(
+  "content-type xlsx",
+  /spreadsheetml\.sheet/.test(resX.headers()["content-type"] ?? ""),
+  resX.headers()["content-type"],
+);
+const dispositionX = resX.headers()["content-disposition"] ?? "";
+ok(
+  "nome do arquivo .xlsx",
+  /attachment; filename="resultados-e-classificacao-.*\.xlsx"/.test(dispositionX),
+  dispositionX,
+);
+
+const wb = new ExcelJS.Workbook();
+await wb.xlsx.load(await resX.body());
+ok("duas abas: Resultados e Classificação", wb.worksheets.length === 2 && !!wb.getWorksheet("Resultados") && !!wb.getWorksheet("Classificação"), wb.worksheets.map((w) => w.name).join(", "));
+
+const headerMap = (ws) => {
+  const map = {};
+  ws.getRow(1).eachCell((cell, col) => {
+    map[String(cell.value).trim()] = col;
+  });
+  return map;
+};
+const dataRowsOf = (ws, cols, key) => {
+  const out = [];
+  for (let r = 2; r <= ws.rowCount; r += 1) {
+    const row = ws.getRow(r);
+    const first = row.getCell(cols[key]).value;
+    if (first === null || first === undefined || first === "") break;
+    out.push(row);
+  }
+  return out;
+};
+
+// --- aba Resultados ---
+const wsR = wb.getWorksheet("Resultados");
+const colsR = headerMap(wsR);
+ok(
+  "cabeçalho da aba Resultados",
+  ["Data", "Nível", "Formato", "Jogador 1", "Jogador 2", "Placar", "Vencedor", "Perdedor", "Pontos J1", "Pontos J2"].every((h) => colsR[h]),
+);
+const linhasR = dataRowsOf(wsR, colsR, "Data");
+ok("mesma quantidade de resultados do painel", linhasR.length === totalPainel, `xlsx=${linhasR.length} painel=${totalPainel}`);
+ok("datas são datas de verdade no Excel", linhasR.every((r) => r.getCell(colsR["Data"]).value instanceof Date));
+ok("pontos são números de verdade", linhasR.every((r) => typeof r.getCell(colsR["Pontos J1"]).value === "number" && typeof r.getCell(colsR["Pontos J2"]).value === "number"));
+ok("cabeçalho congelado e filtro ativo", wsR.views?.[0]?.state === "frozen" && !!wsR.autoFilter);
+
+const erroX = [];
+for (const row of linhasR) {
+  const formato = row.getCell(colsR["Formato"]).value;
+  const sets1 = Number(row.getCell(colsR["Sets J1"]).value);
+  const sets2 = Number(row.getCell(colsR["Sets J2"]).value);
+  const pts1 = row.getCell(colsR["Pontos J1"]).value;
+  const pts2 = row.getCell(colsR["Pontos J2"]).value;
+  const key = `${formato} ${sets1}x${sets2} => ${pts1}/${pts2}`;
+  if (formato === "W.O.") {
+    if (!((pts1 === 300 && pts2 === 0) || (pts1 === 0 && pts2 === 300))) erroX.push(key);
+  } else if (formato === "Normal") {
+    const perdedorSets = Math.min(sets1, sets2);
+    const okStraight = (pts1 === 300 && pts2 === 50) || (pts1 === 50 && pts2 === 300);
+    const okExtended = (pts1 === 200 && pts2 === 100) || (pts1 === 100 && pts2 === 200);
+    if (Math.max(sets1, sets2) !== 2 || !(perdedorSets === 0 ? okStraight : okExtended)) erroX.push(key);
+  } else if (formato === "Grand Slam") {
+    const perdedorSets = Math.min(sets1, sets2);
+    const esperado = perdedorSets === 0 ? 75 : perdedorSets === 1 ? 150 : 300;
+    if (Math.max(sets1, sets2) !== 3 || !((pts1 === 450 && pts2 === esperado) || (pts1 === esperado && pts2 === 450))) erroX.push(key);
+  } else {
+    erroX.push(`formato desconhecido: ${formato}`);
+  }
+}
+ok("pontuação da aba Resultados correta", erroX.length === 0, erroX.slice(0, 3).join(" · "));
+
+// --- aba Classificação ---
+const wsC = wb.getWorksheet("Classificação");
+const colsC = headerMap(wsC);
+ok(
+  "cabeçalho da aba Classificação",
+  ["Posição", "Jogador", "Pontos", "Jogos (JGS)", "Média"].every((h) => colsC[h]),
+);
+const linhasC = dataRowsOf(wsC, colsC, "Posição").map((row) => ({
+  pos: Number(row.getCell(colsC["Posição"]).value),
+  name: String(row.getCell(colsC["Jogador"]).value ?? ""),
+  pts: Number(row.getCell(colsC["Pontos"]).value),
+  games: Number(row.getCell(colsC["Jogos (JGS)"]).value),
+  avg: Number(row.getCell(colsC["Média"]).value),
+}));
+ok("mesma quantidade de jogadores da página pública", linhasC.length === publicRanking.length, `xlsx=${linhasC.length} site=${publicRanking.length}`);
+ok("mesmo líder da página pública", linhasC[0]?.name === publicRanking[0]?.name && linhasC[0]?.pts === publicRanking[0]?.pts, `${linhasC[0]?.name} ${linhasC[0]?.pts} pts`);
+ok("pontos em ordem decrescente", linhasC.every((r, i) => i === 0 || linhasC[i - 1].pts >= r.pts));
+ok("posições com empate compartilhando lugar", linhasC.every((r, i) => i === 0 || r.pos >= linhasC[i - 1].pos));
+ok("média = pontos / jogos (1 casa)", linhasC.every((r) => Math.abs(r.avg - Math.round((r.pts / r.games) * 10) / 10) < 1e-9));
+ok("cabeçalho congelado e filtro ativo (classificação)", wsC.views?.[0]?.state === "frozen" && !!wsC.autoFilter);
 
 await browser.close();
 

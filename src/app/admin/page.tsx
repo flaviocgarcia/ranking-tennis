@@ -99,11 +99,12 @@ export default async function AdminHomePage() {
           <div className="title">Resultados</div>
           <div className="desc">Confirmar, corrigir, rejeitar ou excluir partidas.</div>
         </Link>
-        <a href="/admin/results/export" className="link-card">
-          <div className="title">Exportar planilha</div>
+        <a href="/admin/results/export/xlsx" className="link-card">
+          <div className="title">Exportar planilha (Excel)</div>
           <div className="desc">
-            Baixe todos os resultados confirmados em CSV, com a pontuação
-            atribuída a cada jogador — um backup completo.
+            Duas abas: todos os resultados confirmados com a pontuação
+            atribuída a cada jogador e a classificação publicada (12 meses).
+            O CSV continua disponível na tela de resultados.
           </div>
         </a>
         {!scope && (

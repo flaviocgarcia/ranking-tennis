@@ -309,12 +309,20 @@ O plano Free **não tem backups automáticos**. Rotina sugerida (mensal):
    copy (select id, email, name, initials, role, level_id, active from public.profiles) to stdout with csv header;
    copy (select * from public.ranking_snapshots) to stdout with csv header;
    ```
-3. **Planilha pronta pelo painel** — Admin → **Exportar planilha** (ou
-   `/admin/results/export`): baixa um CSV com **todos os resultados
-   confirmados** do escopo do administrador, já com vencedor, perdedor,
-   sets e **pontos atribuídos a cada jogador** (a mesma regra do ranking),
-   além da origem e das datas de confirmação. Abre direto no Excel/Google
-   Sheets (BOM UTF-8 + separador `;`). O download exige sessão de
+3. **Planilha pronta pelo painel** — Admin → **Exportar Excel** (ou
+   `/admin/results/export/xlsx`): baixa um `.xlsx` com **duas abas**:
+   - **Resultados** — todos os resultados confirmados do escopo do
+     administrador, com vencedor, perdedor, sets, placar e **pontos
+     atribuídos a cada jogador** (a mesma regra do ranking), além da
+     origem e das datas de confirmação. Datas e números são valores
+     reais (dá para ordenar, filtrar e somar), com cabeçalho fixo e
+     filtro automático;
+   - **Classificação** — a mesma classificação publicada no site
+     (janela de 12 meses): posição, jogador, pontos, jogos e média,
+     com a data do último recálculo e o início da janela no rodapé.
+   O CSV continua disponível ao lado do botão (`/admin/results/export`),
+   com as mesmas colunas da aba Resultados, para quem precisar importar
+   em outra ferramenta. Os dois downloads exigem sessão de
    administrador — jogadores comuns são redirecionados.
 4. Guarde o arquivo fora do Supabase (o Free não retém histórico).
 

@@ -59,10 +59,13 @@ export default async function AdminResultsPage({
       <div className="row-actions" style={{ justifyContent: "space-between" }}>
         <h1 className="page-title">Resultados</h1>
         <div className="row-actions">
-          <a href="/admin/results/export" className="btn btn-secondary">
-            Exportar planilha
+          <a href="/admin/results/export/xlsx" className="btn">
+            Exportar Excel
           </a>
-          <Link href="/admin/results/new" className="btn">
+          <a href="/admin/results/export" className="btn btn-secondary">
+            CSV
+          </a>
+          <Link href="/admin/results/new" className="btn btn-secondary">
             + Lançar resultado
           </Link>
         </div>
@@ -70,7 +73,8 @@ export default async function AdminResultsPage({
       <p className="page-sub">
         Resultados informados por jogadores ficam pendentes até confirmação.
         Confirmar recalcula e republica somente o ranking afetado. A planilha
-        traz todos os resultados confirmados com as pontuações de cada partida.
+        Excel traz duas abas: resultados confirmados com as pontuações de cada
+        partida e a classificação publicada.
       </p>
 
       <form className="filters" method="get">

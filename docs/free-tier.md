@@ -86,7 +86,7 @@ HTML ~10 kB ⇒ ~120 kB/visualização ⇒ 400 visitas ≈ 50 MB/mês no CDN.
 | Projeto Supabase pausado após 1 semana sem atividade | site público pode exibir *fallback* amigável até reativar | reativar no painel Supabase (grátis); visitar o site mantém atividade |
 | Esgotar deploys no dia (100) | deploy recusado | 100/dia é folga ampla para 1 clube |
 | Exceder Fast Data Transfer | site degradado até novo período (30 dias) | páginas públicas ~120 kB; tirar thumbnails pesados (não usados aqui) |
-| Crescimento de banco (500 MB) | lentidão/erro de gravação | exportar CSV mensal (ver `docs/setup.md` §backup) |
+| Crescimento de banco (500 MB) | lentidão/erro de gravação | exportar planilha mensal (ver `docs/setup.md` §backup) |
 | Uso do Hobby fora do escopo pessoal/não comercial | restrição de *fair use* da Vercel | manter uso de clube/amador; escalar para Pro se necessário |
 | Webhook do Telegram ativo sem token/segredo | — | configuração 100% opcional; sem env, a rota responde 404 |
 
