@@ -5,7 +5,7 @@ import { createSupabaseServer } from "@/lib/supabase/server";
 import { getLevelAdmin } from "@/lib/queries/levels";
 import { TelegramCodeForm } from "@/components/TelegramCodeForm";
 import { adminAvailable, createSupabaseAdmin } from "@/lib/supabase/admin";
-import { NameForm, PasswordForm } from "@/components/ProfileForms";
+import { NameForm, EmailForm, PasswordForm } from "@/components/ProfileForms";
 import { clubName } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Perfil" };
@@ -80,6 +80,11 @@ export default async function ProfilePage() {
             {profile.role === "admin" ? "administrador" : "jogador"}
           </p>
           <NameForm initialName={profile.name} />
+        </section>
+
+        <section className="card">
+          <h2>E-mail de login</h2>
+          <EmailForm currentEmail={info.email} />
         </section>
 
         <section className="card">

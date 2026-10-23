@@ -1,8 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState, type FormEvent } from "react";
+import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { clearMustChangeAction, updateNameAction } from "@/actions/auth";
+import {
+  clearMustChangeAction,
+  updateEmailAction,
+  updateNameAction,
+} from "@/actions/auth";
 import { createSupabaseBrowser } from "@/lib/supabase/browser";
 import type { ActionResult } from "@/types/db";
 
@@ -22,6 +26,71 @@ export function NameForm({ initialName }: { initialName: string }) {
       </div>
       <button className="btn" type="submit" disabled={pending}>
         {pending ? "Salvando..." : "Salvar nome"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Alteração do próprio e-mail de login.
+ *
+ * Pede o novo e-mail duas vezes; a troca é imediata e a senha atual
+ * continua valendo. O e-mail antigo deixa de funcionar.
+ */
+export function EmailForm({ currentEmail }: { currentEmail: string | null }) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, action, pending] = useActionState<
+    ActionResult<{ email: string }> | null,
+    FormData
+  >(updateEmailAction, null);
+
+  useEffect(() => {
+    if (state?.ok) {
+      formRef.current?.reset();
+      router.refresh();
+    }
+  }, [state, router]);
+
+  return (
+    <form ref={formRef} className="form" action={action}>
+      {state && !state.ok && <div className="alert alert-error">{state.error}</div>}
+      {state?.ok && state.data && (
+        <div className="alert alert-ok">
+          E-mail de login alterado para <strong>{state.data.email}</strong>. A
+          senha atual continua valendo; use o novo e-mail para entrar da
+          próxima vez.
+        </div>
+      )}
+      <p className="muted small">
+        Login atual: <strong>{currentEmail ?? "—"}</strong>. A troca é imediata
+        — confira bem antes de salvar, pois este endereço passa a ser o seu
+        acesso.
+      </p>
+      <div className="field">
+        <label htmlFor="email">Novo e-mail</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          maxLength={200}
+          required
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="email2">Confirmar novo e-mail</label>
+        <input
+          id="email2"
+          name="email2"
+          type="email"
+          autoComplete="email"
+          maxLength={200}
+          required
+        />
+      </div>
+      <button className="btn" type="submit" disabled={pending}>
+        {pending ? "Alterando..." : "Alterar e-mail"}
       </button>
     </form>
   );

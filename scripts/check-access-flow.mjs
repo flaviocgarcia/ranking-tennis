@@ -24,6 +24,7 @@ const adminApi = buildAdminClient();
 const stamp = Date.now().toString(36);
 const name = `Teste Fluxo ${stamp}`;
 const email = `teste-fluxo-${stamp}@fch.example.com`;
+const emailSelf = `teste-fluxo-${stamp}-eu@fch.example.com`;
 const emailCorrigido = `teste-fluxo-${stamp}-corrigido@fch.example.com`;
 const finalPassword = "NovaSenha@123";
 
@@ -126,12 +127,42 @@ try {
     .maybeSingle();
   ok("flag de troca de senha foi limpa", perfilDepois.data?.must_change_password === false);
 
-  // ---------- novo login com a senha definitiva ----------
+  // ---------- o próprio jogador altera o e-mail no perfil ----------
+  await playerPage.goto(`${BASE}/profile`, { waitUntil: "networkidle" });
+  const cardEmail = playerPage.locator("section.card", { hasText: "E-mail de login" });
+  ok("perfil oferece alteração de e-mail", (await cardEmail.count()) === 1);
+
+  await playerPage.fill("#email", emailSelf);
+  await playerPage.fill("#email2", `outro-${emailSelf}`);
+  await playerPage.click('button:has-text("Alterar e-mail")');
+  const erroEmails = await playerPage.locator(".alert-error").first().innerText().catch(() => "");
+  ok("confirmação evita e-mail digitado errado", /não conferem/i.test(erroEmails), erroEmails);
+
+  await playerPage.fill("#email", emailSelf);
+  await playerPage.fill("#email2", emailSelf);
+  await playerPage.click('button:has-text("Alterar e-mail")');
+  const okEmail = playerPage.locator(".alert-ok").first();
+  await okEmail.waitFor({ timeout: 20000 });
+  ok("jogador altera o próprio e-mail", (await okEmail.innerText()).includes(emailSelf));
+  await playerPage
+    .waitForFunction(
+      (em) => {
+        const cards = Array.from(document.querySelectorAll("section.card"));
+        const card = cards.find((c) => c.textContent?.includes("E-mail de login"));
+        return !!card && card.textContent?.includes(`Login atual: ${em}`);
+      },
+      emailSelf,
+      { timeout: 10000 },
+    )
+    .catch(() => null);
+  ok("perfil passa a mostrar o novo login", (await cardEmail.innerText()).includes(emailSelf));
+
+  // ---------- novo login com a senha definitiva e o e-mail novo ----------
   const ctxFinal = await browser.newContext({ locale: "pt-BR" });
   const finalPage = await ctxFinal.newPage();
   ok(
-    "login com a senha definitiva entra direto no painel",
-    await login(finalPage, email, finalPassword, "**/app**"),
+    "login com e-mail novo + senha definitiva entra direto no painel",
+    await login(finalPage, emailSelf, finalPassword, "**/app**"),
     finalPage.url(),
   );
   ok(
@@ -142,7 +173,7 @@ try {
 
   // ---------- administrador corrige o e-mail de login ----------
   await adminPage.goto(`${BASE}/admin/players/${userId}`, { waitUntil: "networkidle" });
-  ok("tela de edição mostra o e-mail do login", (await adminPage.locator(".page-sub").innerText()).includes(email));
+  ok("tela de edição mostra o e-mail do login", (await adminPage.locator(".page-sub").innerText()).includes(emailSelf));
   await adminPage.fill("#email", emailCorrigido);
   await adminPage.click('button[type="submit"]:has-text("Salvar alterações")');
   await adminPage.locator(".alert-ok").first().waitFor({ timeout: 20000 });

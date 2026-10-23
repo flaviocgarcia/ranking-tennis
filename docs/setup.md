@@ -78,7 +78,10 @@ acima e depois migre para o CLI).
   o público (anon) vê apenas `id, nome, iniciais` de jogadores ativos
   (é o que a classificação exibe). UPDATE de perfil é restrito a
   `name`, `initials`, `must_change_password`, `telegram_*` — ninguém
-  altera `role`/`level_id`/`active` por RLS.
+  altera `role`/`level_id`/`active` por RLS. A troca do próprio e-mail é
+  feita por **server action com a chave de service** (depois de
+  `requireUser`) e não por UPDATE direto: o RLS continua sem grant de
+  escrita em `email`.
 - **`invites` é tabela privada**: nenhuma leitura para `anon`/
   `authenticated` (o código de ativação é credencial) — só a server action
   com chave de service a toca.
@@ -188,6 +191,10 @@ where email = 'seu-email@exemplo.com';
   temporária** (o alerta mostra a senha e o e-mail de login). O e-mail
   também pode ser corrigido na mesma tela, mantendo a senha atual.
 - Ao ativar/criar, a classificação é recalculada e republicada na hora.
+- **No `/profile` o próprio jogador pode alterar**: nome exibido no
+  ranking, **e-mail de login** (com confirmação; a senha atual continua
+  valendo), senha e código do Telegram. **Nível, papel e situação**
+  continuam sendo definidos apenas pelo administrador.
 
 ### Atalho para testes: contas demo
 
