@@ -1,0 +1,44 @@
+# Snyk (https://snyk.io) policy file
+version: v1.25.0
+ignore:
+  # next@15.5.28 é a última da linha 15; estas três só têm correção no Next 16 (major).
+  # Nenhuma é alcançável nesta app (conferido em next.config.ts e em src/). Reavaliar no upgrade para o Next 16.
+  SNYK-JS-NEXT-15105315:
+    - '*':
+        reason: >-
+          DoS pelo endpoint de "resume" do Partial Prerendering; o PPR é experimental no Next 15 e não está
+          ligado aqui (next.config.ts sem experimental.ppr).
+        expires: 2027-04-24T00:00:00.000Z
+  SNYK-JS-NEXT-15674556:
+    - '*':
+        reason: >-
+          Cache em disco sem limite da otimização de imagens; a app usa images.unoptimized = true (nenhuma
+          variante é gerada) e não importa next/image.
+        expires: 2027-04-24T00:00:00.000Z
+  SNYK-JS-NEXT-20569640:
+    - '*':
+        reason: >-
+          Deduplicação do cache da diretiva "use cache" ignorando o draft mode; a app não usa "use cache"
+          nem draftMode.
+        expires: 2027-04-24T00:00:00.000Z
+  SNYK-JS-NEXT-20569641:
+    - '*':
+        reason: >-
+          Corrigido na linha 15 em 15.5.27 (faixa vulnerável >=15.0.0 <15.5.27); a app está em 15.5.28. O
+          Snyk ainda aponta pela faixa genérica "<16.3.8".
+        expires: 2027-04-24T00:00:00.000Z
+  # exceljs@4.4.0: sem versão corrigida; a app só GERA planilha (src/lib/export/results-workbook.ts usa
+  # xlsx.writeBuffer). Nada lê planilha enviada nem extrai ZIP.
+  SNYK-JS-UNZIPPER-18365659:
+    - '*':
+        reason: >-
+          Zip Slip do unzipper só ocorre ao extrair ZIP para o disco; o exceljs usa unzipper apenas na leitura
+          por stream, que a app não usa (só exporta com writeBuffer).
+        expires: 2027-04-24T00:00:00.000Z
+  SNYK-JS-INFLIGHT-6095116:
+    - '*':
+        reason: >-
+          inflight vem de glob@7 em archiver (escrita por stream do exceljs), caminho não usado (a exportação usa
+          writeBuffer). Sem correção publicada.
+        expires: 2027-04-24T00:00:00.000Z
+patch: {}
